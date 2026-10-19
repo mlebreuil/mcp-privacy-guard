@@ -37,6 +37,29 @@ Terms used in this spec:
 - **Profile**: a description of one MCP server's data: which fields hold which kind of value,
   and which values are safe to keep. It makes pseudonymization precise for that server.
 
+## Clarifications
+
+### Session 2026-10-18
+
+- Q: Where must real values be shown automatically, given that this Claude Code version can
+  only rewrite what's displayed in the terminal CLI, not in the VS Code extension or the
+  desktop app? → A: Terminal CLI only. The guard refuses to run in the VS Code extension and
+  the desktop app (it blocks questions and withholds protected results there), so users never
+  work with stand-ins they cannot read.
+- Q: Should text the user pastes into a question be pseudonymized like typed text? → A: Yes,
+  pasted text is covered exactly like typed text. Images, attached files and documents stay
+  out of scope.
+- Q: When a question carries an image, file or document attachment, should the guard let the
+  attachment through unprotected, or block the question? → A: Block any question that carries
+  an attachment, and tell the user to paste the text instead.
+- Q: Should the guard require Claude Code's sandbox (with reads of its folder denied) and refuse
+  to run without it? → A: Yes. Without the sandbox the guard blocks questions and withholds
+  protected results, and says how to enable it.
+- Q: Should name stand-ins carry a prefix showing their kind (`fw-…`, `rule-…`), which could
+  differ between servers and fields? → A: No. Every name uses one generic form (`n-…`) and is
+  identical everywhere, so correlation across logs, configuration and servers is exact; the
+  model infers the kind from context.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Use any MCP server without sending real data to the model (Priority: P1)
@@ -134,6 +157,9 @@ results.
    not reach the model.
 5. **Given** the question has been pseudonymized, **When** it is shown back to the user in the
    conversation, **Then** the user sees it as typed, with the replaced values marked.
+6. **Given** a question that carries an image, file or document attachment, **When** it is
+   submitted, **Then** it is blocked and does not reach the model, and the user is asked to
+   paste the text instead.
 
 ---
 
@@ -153,8 +179,9 @@ that the screen shows every stand-in as its real value, with the rest of the tex
 
 1. **Given** an answer containing stand-ins, **When** it is displayed, **Then** every known
    stand-in is shown as its real value, and all other text is unchanged.
-2. **Given** the user is working in Claude Code on their own machine, **When** the assistant
-   writes an answer, **Then** the user sees it with real values, without running any command.
+2. **Given** the user is working in Claude Code in a terminal on their own machine, **When**
+   the assistant writes an answer, **Then** the user sees it with real values, without running
+   any command.
 3. **Given** a stand-in that the model altered or invented, **When** it is displayed, **Then**
    it is left as it is and marked as unknown, never guessed.
 4. **Given** the conversation is displayed on a remote device (phone or web), **When** it is
@@ -164,6 +191,9 @@ that the screen shows every stand-in as its real value, with the rest of the tex
    values were revealed (for example by highlighting).
 6. **Given** an answer has been shown with real values, **When** the conversation continues,
    **Then** the model still sees only the stand-in version.
+7. **Given** the user starts Claude Code in the VS Code extension or the desktop app, **When**
+   they submit a question or a protected tool returns data, **Then** the question is blocked
+   and the result is withheld, with a message to use Claude Code in a terminal.
 
 ---
 
@@ -251,8 +281,12 @@ reported status, add a keep value and an exemption, and check their effect.
   user sees what was replaced and can correct it.
 - **Slash commands** carrying identifying values cannot be rewritten; they are blocked with a
   request to ask as a plain question.
+- **Attachments** (images, files, documents) on a question cannot be checked; the question is
+  blocked with a request to paste the text instead.
 - **The model trying to read the mapping**: the model's own tools (shell, file reading) must not
-  be able to read the secret or the mapping, or run the reveal function.
+  be able to read the secret or the mapping, or run the reveal function. This is enforced by
+  Claude Code's sandbox, which the guard requires (FR-026); without it the guard refuses to
+  run.
 - **Lost or rotated secret**: earlier stand-ins can no longer be revealed or translated; the
   user is told so in plain language instead of seeing wrong values.
 - **Exempted server returning a stand-in**: values from an exempt server are passed through as
@@ -294,8 +328,10 @@ reported status, add a keep value and an exemption, and check their effect.
   stand-ins.
 - **FR-009**: Stand-ins MUST be of the same kind as the value they replace and keep the
   relationships the model needs: IP stand-ins keep subnet containment, range order and address
-  class; FQDN stand-ins keep shared parent domains; user names keep their domain part; names
-  show their object type when it is known.
+  class; FQDN stand-ins keep shared parent domains; user names keep their domain part. Name
+  stand-ins MUST NOT depend on the object type or on the server: one real name has exactly one
+  stand-in everywhere, so the model can correlate it across configuration, logs and servers by
+  plain string equality.
 - **FR-010**: No one holding only stand-ins, or a list of candidate real values, MUST be able
   to recover real values without the user's local secret.
 
@@ -321,24 +357,30 @@ reported status, add a keep value and an exemption, and check their effect.
 
 **User questions**
 
-- **FR-017**: The guard MUST replace identifying values in the user's question with their
-  stand-ins before it is sent to the model provider, using the same stand-ins as tool results.
+- **FR-017**: The guard MUST replace identifying values in the user's question, including text
+  pasted into it, with their stand-ins before it is sent to the model provider, using the same stand-ins as tool results.
 - **FR-018**: Identifying values in questions MUST be recognised by shape (IPs, networks, FQDNs,
   serials, e-mail and MAC addresses, domain user names) and by matching names known from
   earlier results and from profiles.
 - **FR-019**: If a question cannot be checked, it MUST NOT be sent, and the user MUST be told
   why and how to fix it.
 - **FR-020**: The user MUST be able to see which values in their question were replaced.
+- **FR-032**: A question that carries an image, file or document attachment MUST NOT be sent.
+  The user MUST be told to paste the text instead.
 
 **Reveal**
 
-- **FR-021**: Answers, and the tool calls and results shown in the conversation, MUST be
-  displayed on the user's own screen with real values restored automatically. The restored
-  text MUST NOT be sent to the model provider or stored in the conversation the model reads.
+- **FR-021**: In Claude Code running in a terminal, answers, the user's questions, and the tool
+  calls and results shown in the conversation MUST be displayed with real values restored
+  automatically. The restored text MUST NOT be sent to the model provider or stored in the
+  conversation the model reads.
 - **FR-022**: Reveal MUST replace only stand-ins it knows, leave all other text unchanged, and
   mark unknown stand-ins rather than guessing.
-- **FR-023**: Reveal MUST NOT happen on displays drawn on another device (remote or mobile
-  views).
+- **FR-023**: Reveal MUST happen only in the terminal. It MUST NOT happen on any other display,
+  including remote or mobile views of a terminal session.
+- **FR-031**: In a session that does not run in a terminal (the VS Code extension, the desktop
+  app), the guard MUST block every question and withhold every protected tool result, and tell
+  the user to use Claude Code in a terminal. It MUST NOT pass data through instead.
 
 **Secret, mapping and self-protection**
 
@@ -347,7 +389,9 @@ reported status, add a keep value and an exemption, and check their effect.
 - **FR-025**: If the secret is missing on first use, the guard MUST create one. If it exists but
   cannot be read, the guard MUST block questions and protected tool results until it is fixed.
 - **FR-026**: The guard MUST prevent the model's own tools from reading the secret or the
-  mapping, or running the reveal function.
+  mapping, or running the reveal function. The guard MUST run only when Claude Code's sandbox
+  is enabled with reads of the guard's folder denied. Otherwise it MUST block every question
+  and withhold every protected tool result, and tell the user how to enable it.
 
 **Operation and transparency**
 
@@ -359,7 +403,8 @@ reported status, add a keep value and an exemption, and check their effect.
   and exempted servers and the profile of each. It MUST tell the model that values are
   stand-ins, so the model does not present them as real or try to guess them.
 - **FR-030**: Documentation MUST explain what is sent to the model provider, what is not
-  covered (files and pastes, the model's built-in tools' output, other clients), how to add a
+  covered (the model's built-in tools' output, other clients), that questions with attachments
+  are blocked, how to add a
   profile, and that the guard must be installed for any protection to apply.
 
 ### Key Entities
@@ -410,11 +455,15 @@ reported status, add a keep value and an exemption, and check their effect.
 - Claude Code is the only supported client. Its plugin interface allows rewriting questions
   before sending, rewriting tool-call arguments and results, and changing the display without
   changing what the model reads (confirmed against Claude Code 2.1.301; see research.md R1).
-  Other clients are out of scope.
-- Covered: MCP tool calls and results, and typed questions. Not covered: the output of Claude
-  Code's built-in tools (shell commands, file reads, web fetches), files or documents the user
-  pastes, and attachments. The documentation states this. Protecting built-in tool output may be
-  a later feature.
+  Display changes work only in the terminal, so only Claude Code in a terminal is supported;
+  the VS Code extension and the desktop app are refused (FR-031) until they allow it. Other
+  clients are out of scope.
+- Claude Code's sandbox is available on the supported platforms (macOS, Linux) and can deny
+  reads of a folder to the model's tools. The guard requires it (FR-026).
+- Covered: MCP tool calls and results, and questions, including text pasted into them.
+  Questions with attachments are blocked (FR-032). Not covered: the output of Claude Code's
+  built-in tools (shell commands, file reads, web fetches). The documentation states this.
+  Protecting built-in tool output may be a later feature.
 - The guard is a separate project. `panos-mcp` is not changed; its profile ships with the
   guard. `panos-mcp`'s offline demo mode is the reference test environment.
 - A profile is precise only for servers whose results are structured. Plain-text results get

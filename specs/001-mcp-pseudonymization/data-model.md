@@ -1,111 +1,152 @@
-# Data Model: Pseudonymize Data Sent to the Model
+# Data Model: Pseudonymize MCP Data Sent to the Model
 
-**Feature**: `001-mcp-pseudonymization` (carried over from panos-mcp draft 002; to be revised by `/speckit-plan`) |
-**Research**: [research.md](./research.md)
+**Feature**: `001-mcp-pseudonymization` | **Research**: [research.md](./research.md)
 
-## Kind (enumeration)
+`<home>` is `$MCP_PRIVACY_GUARD_HOME`, default `~/.config/mcp-privacy-guard`.
 
-What an identifying value is. It determines the stand-in format
+## Kind
+
+What an identifying value is. It decides the stand-in format
 ([contracts/standin-formats.md](./contracts/standin-formats.md)).
 
-| Group | Members |
-|---|---|
-| Network | `IP` (address, prefix, range, wildcard), `FQDN`, `HOSTNAME`, `URL`, `MAC` |
-| Identity | `USER`, `GROUP`, `EMAIL` |
-| Device | `SERIAL`, `DEVICE_NAME` |
-| Configuration names | `DEVICE_GROUP`, `TEMPLATE`, `TEMPLATE_STACK`, `RULE_NAME`, `ADDRESS`, `ADDRESS_GROUP`, `SERVICE`, `SERVICE_GROUP`, `APP_GROUP`, `TAG`, `ZONE`, `PROFILE_GROUP`, `INTERFACE`, `VSYS` |
-| Free text | `TEXT` (whole value), `MIXED` (scan, replace embedded values, else whole value) |
+| Group | Kinds | Defined by |
+|---|---|---|
+| Network | `IP` (address, prefix, range, wildcard), `FQDN`, `URL`, `MAC` | core |
+| Identity | `EMAIL`, `USER`, `GROUP` | core |
+| Generic | `NAME` (prefix `n`), `DIGITS` | core |
+| Text | `TEXT` (whole value), `MIXED` (scan, else whole) | core |
+| Profile name kinds | e.g. `RULE_NAME`, `ADDRESS`, `DEVICE_NAME` | profile |
 
-Unannotated string fields default to `TEXT` (fail closed, FR-007).
-
-## Field classification
-
-A marker on each string field of the result models (`models/*.py`) and on each tool argument:
-
-- `Pii(kind)`: pseudonymize as `kind`.
-- `Keep`: never pseudonymized (enum-like strings Panorama returns as free strings, e.g.
-  `action`, `log_type`, `severity`, application names from the predefined catalogue).
-
-**Validation**: a contract test enumerates every model reachable from every tool's return type
-and from `ToolErrorInfo`, and fails if a `str` / `list[str]` / `dict[str, str]` field has
-no marker.
+Every name kind produces the same stand-in as `NAME` (`n-<token>`). A kind only marks the
+value as a name to learn for questions and selects cue words (FR-009). The stand-in prefixes
+are fixed: `n`, `text`, `h`, `d`, `u`, `g`, `dom`, `p`.
 
 ## Pseudonymization secret
 
-| Field | Description |
+| Field | Rule |
 |---|---|
-| `key` | 32 random bytes |
-| `path` | `<store dir>/secret.key`, mode `0600`, directory `0700` |
+| `key` | 32 bytes from `secrets.token_bytes` |
+| file | `<home>/store/secret.key`, mode `0600`, directory `0700` |
 
-**States**: `absent` → created on first start → `ready`. `unreadable` or `too-permissive` →
-server refuses data (FR-013), and `pseudonym prompt` exits non-zero so the plugin drops the
-prompt (FR-024). Never logged and never returned (FR-012).
+**States**: `absent` → (first use) → `ready`. `unreadable` or `too-permissive` →
+every engine command except `status` exits with code 3, and the plugin blocks questions and
+protected results (FR-025). A new secret means a new store: earlier stand-ins become
+"unknown, issued with another secret".
 
-## Stand-in record (`standin` table)
+## Mapping store (`<home>/store/mapping.sqlite`, mode `0600`, WAL)
 
-| Field | Type | Rules |
+### `standin`
+
+| Column | Type | Rule |
 |---|---|---|
-| `kind` | Kind | |
-| `standin` | text | unique; same shape as `real`; never a real *name* (reserved prefix) |
-| `real` | text | unique together with `kind` |
-| `first_seen` | timestamp | |
-| `rev` | integer | monotonically increasing; the plugin syncs with `--since <rev>` |
+| `standin` | text | unique; the full stand-in string as issued |
+| `token` | text, nullable | name token without the `n-` prefix (name kinds); unique per real |
+| `kind` | text | |
+| `real` | text | |
+| `rev` | integer | strictly increasing; the plugin syncs with `since` |
+| `first_seen` | text (UTC ISO 8601) | |
 
-IP stand-ins are computed from the key and can be inverted without the table. They are still
-recorded so that the plugin's reveal table, which has no key, can map them back.
+Unique `(kind, real)`. One row per issued stand-in, including IPs (computed from the key but
+recorded so the plugin's table can reveal them) and the label-level FQDN stand-ins.
 
 **Invariants**:
-- the same `(kind, real)` always gives the same `standin` (FR-004);
-- different reals of one kind give different stand-ins;
-- name stand-ins are unique across kinds because of their prefix.
+- the same `(kind, real)` always gives the same `standin` (FR-008);
+- the same `real` gives the same name stand-in under every name kind, field and server;
+- different reals never share a token or a stand-in.
 
-## Name dictionary (`names` table)
+### `names` (name dictionary for questions)
 
-| Field | Type | Rules |
+| Column | Type | Rule |
 |---|---|---|
-| `kind` | Kind (configuration names, `USER`, `GROUP`, `DEVICE_NAME`) | |
-| `real` | text | unique together with `kind` |
-| `common_word` | bool | true if `real` is in the bundled common-word list (R8) |
+| `real` | text | |
+| `kind` | text | name kinds, `USER`, `GROUP` |
+| `server` | text | the alias it was seen on |
+| `common_word` | bool | `real` is in the common-word list |
 
-It is filled from results and by the start-up warm-up. The prompt recogniser reads it.
+Unique `(real, kind)`. Filled by `result` and `learn`.
 
-**Warm-up state** (kept in the store, `meta` table): `not-started` → `running` → `complete`
-or `failed(reason)`. Reported by `pseudonym status` and shown by the plugin.
+### `meta`
 
-## Keep list / hide list (operator)
+`schema_version`, and per server: `warmup_state` (`not-started` → `running` → `complete` or
+`failed`), `warmup_reason`.
 
-| Setting | Meaning |
+## Profile
+
+Loaded from TOML ([contracts/profile-format.md](./contracts/profile-format.md)).
+
+| Field | Meaning |
 |---|---|
-| `PANOS_MCP_PSEUDONYM_KEEP` | Path to a file, one value per line: always passed through (e.g. public DNS servers). The built-in keep set (shared with the sample sanitizer) is always included. |
-| `PANOS_MCP_PSEUDONYM_HIDE` | Path to a file: always pseudonymized as `TEXT` wherever it appears, even inside built-in-looking or `Keep` fields. |
-| `PANOS_MCP_PSEUDONYM_DIR` | Store directory (default `~/.config/panos-mcp/pseudonym/`). |
+| `id`, `version`, `description` | identity |
+| `servers` | glob list matched against the server alias |
+| `kinds` | name kinds: `cues` |
+| `vocabulary` | closed list of values that pass anywhere in this server's data |
+| `fields[]` | `path`, optional `tools`, then one of `kind`, `enum`, `keys` |
+| `text.mode` | `mixed` (default) or `whole` for plain-text blocks |
+| `warmup[]` | read-only tool calls (`tool`, `args`) the plugin runs at session start |
 
-There is no setting that turns pseudonymization off (FR-017). A contract test asserts that no
-such setting exists.
+**Validation** (on load, and by `check-profile`):
+- the TOML parses and the schema matches;
+- kind names are `[A-Z][A-Z0-9_]*` and do not redefine a core kind;
+- path patterns parse;
+- no vocabulary or enum value has an identifying shape;
+- warm-up tools exist in the profile's own `fields` tool list or are declared read-only.
 
-## Replacement (prompt CLI output)
+**States**: `valid` → applied. `invalid` → the default profile applies for that server, and
+the reason is reported (FR-015).
 
-| Field | Description |
+## Operator config (`<home>/config.toml`)
+
+| Key | Meaning |
 |---|---|
-| `start`, `end` | Character offsets in the original question |
-| `kind` | Kind |
-| `standin` | What the model receives |
-| `reason` | `shape`, `name`, or `name+cue` (common word matched by a cue) |
+| `keep.values`, `keep.files` | values always passed through (FR-028) |
+| `hide.values`, `hide.files` | values always pseudonymized as `TEXT`, even when a profile would keep them |
+| `servers.<alias>.profile` | force a profile for an alias |
+| `servers.<alias>.exempt` | `true`: results pass unchanged; arguments are still translated |
 
-The plugin uses the replacements to highlight the replaced values in the user's own row
-(FR-025).
+There is **no** key that disables pseudonymization globally (FR-027). A contract test reads
+the config schema and fails if one appears.
 
-## Reveal table (plugin memory only)
+## Classification decision (per string value)
 
-`standin → { real, kind }`, synced from `pseudonym table --since <rev>`. It is held in the
-plugin module's memory for the session: never in `$.store` and never written to disk by the
-plugin. It is rebuilt on `session.start` and after each reload.
+Order, first match wins (research R4): hide list → keep list → profile field rule (kind or
+enum) → built-in safe forms and vocabulary → whole-value shape → single token `NAME` →
+`MIXED`.
+
+## Engine reply envelope
+
+Every engine reply that can issue stand-ins carries:
+
+| Field | Meaning |
+|---|---|
+| `table.rev` | latest revision |
+| `table.entries[]` | `{ standin, real, kind }` added since the `--since` the plugin passed |
+
+## Replacement (question)
+
+| Field | Meaning |
+|---|---|
+| `start`, `end` | offsets in the question as typed |
+| `kind`, `standin` | |
+| `reason` | `shape`, `name`, `name+cue`, `name+quote` |
+
+## Plugin state (module memory only)
+
+| Item | Content |
+|---|---|
+| reveal table | `Map<standin, { real, kind }>` and `rev` |
+| server map | alias → `{ profile, exempt, status }` from `status` |
+| recognition pattern | regex string from `status` for unknown stand-ins |
+| reveal allowed | `false` after a spoofed `terminal` attach |
+| block reason | `null`, or why the guard blocks: no terminal surface, sandbox settings missing, engine unavailable, host too old |
+
+Nothing is stored in `$.store`, `$.state` or on disk by the plugin.
 
 ## Relationships
 
 ```
-secret ──derives──▶ standin.standin  ◀──reverse lookup── tool arguments (R5)
-standin ──synced──▶ reveal table (plugin) ──used by──▶ AssistantMessage / UserMessage /
-                                                      ToolUse / ToolResult rows
-names ──used by──▶ prompt recogniser ──writes──▶ standin
+secret ──derives──▶ standin rows ──table──▶ plugin reveal table ──▶ terminal rows
+profile ─classifies─▶ result values ──▶ standin rows, names rows
+names ──recognises──▶ question values ──▶ standin rows
+warm-up ($.mcp.call) ──learn──▶ names rows
+tool arguments ──args (key + table)──▶ real values ──▶ MCP server
 ```

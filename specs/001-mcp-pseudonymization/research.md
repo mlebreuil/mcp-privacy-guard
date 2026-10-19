@@ -1,281 +1,323 @@
-# Research: Pseudonymize Data Sent to the Model
+# Research: Pseudonymize MCP Data Sent to the Model
 
-**Feature**: `001-mcp-pseudonymization` (carried over from panos-mcp draft 002; to be revised by `/speckit-plan`) | **Date**: 2026-10-17
+**Feature**: `001-mcp-pseudonymization` | **Date**: 2026-10-18 | **Plan**: [plan.md](./plan.md)
 
-All Technical Context unknowns are resolved below. Items marked **Verify at implementation**
-are facts about third-party software that may move and must be re-checked when the related
-task starts.
+This replaces the research carried over from the panos-mcp draft. The guard is now generic: it
+sits in Claude Code, not inside any MCP server. Items marked **Verify at implementation** are
+facts about third-party software that may change. Re-check them when the related task starts
+and record the result here.
 
 ---
 
-## R1. Feasibility in Claude Code (the spec's main risk)
+## R1. Claude Code plugin API (the main risk)
 
-The spec needs two things the MCP server cannot do itself, because neither the user's question
-nor the assistant's answer passes through it: rewrite the question before it is sent (FR-022)
-and show answers with real values (FR-015).
+Source: the API declarations shipped with Claude Code 2.1.301 (`claude-code.d.ts`, read on
+2026-10-18).
 
-- **Finding**: the Claude Code plugin ("mod") API of build 2.1.301 supports both. Source: the
-  API declarations shipped with the `plugin-authoring` skill (`claude-code.d.ts`).
-  - `on('prompt.submit', hook)`: "Rewrite with `next({ ...e, text })` (the user message on
-    screen follows) or, in its place, stop it with `{ drop: reason }`." The rewritten text is
-    what reaches the model.
-  - `on('ui.render', { component: 'AssistantMessage' }, hook)`: "A rewrite changes the drawing
-    and leaves the stored message alone." Same for `UserMessage` ("a rewritten `text` changes
-    the row alone, never what the model read"), `ToolUse` and `ToolResult`.
-  - Render hooks are "raised on every attached surface"; `e.surface` is `terminal`, `desktop`,
-    `vscode` or `mobile`.
-  - `on('tool.call', { tool }, hook)` (added for the generic design): `next({ ...e, input })`
-    runs the tool with rewritten arguments; `await next(e)` resolves to the result, and
-    returning `{ result }` hands the model a rewritten result instead (core validates it against
-    the tool's output schema). `{ deny }` after the tool ran withholds its result: the model reads
-    "`<tool>` ran, and a plugin withheld its result". A failing guard is skipped unless the
-    registration carries `.catch(... { deny })`. This lets the guard handle any MCP server with
-    no change to the server.
-  - `$.process.run` runs a local command by argv; `$.ui.toast` / `$.ui.status` show short
-    notices.
-- **Caveat 1 (fail-open default)**: "a broken plugin never blocks" a prompt. A plugin whose
-  hook throws lets the original prompt through. The hook MUST be wrapped with the documented
-  `.catch(($, e, next) => next.called ? next(e) : { drop: "…" })` so a failure drops the
-  prompt instead (FR-024). Contract test required.
-- **Caveat 2 (slash commands)**: a rewrite of `text` is not applied when the submission runs a
-  slash command (`e.command` set); the person is told. Skill/command arguments must be handled
-  at `command.run` / `skill.prompt`. Decision: drop any slash-command submission whose
-  arguments contain an identifying value, with a message asking to rephrase as a plain
-  question. Plain slash commands without such values pass.
-- **Caveat 3 (remote surfaces)**: `mobile` and remote `desktop` surfaces are drawn by a remote
-  client, so a revealed tree would carry real values off the machine. Decision: reveal only
-  when `e.surface === 'terminal'` or `'vscode'` (both local); other surfaces draw stand-ins.
-  **Verify at implementation** whether `desktop` can be told apart as local.
-- **Decision**: ship a small Claude Code plugin with the project (the "reveal companion"). It
-  does three things: rewrite prompts, reveal rows on local surfaces, and guard tool calls (R9).
-  All pseudonymization logic stays in Python and is reached through a local CLI (R6).
-- **Fallback** (spec Assumptions): if a future build removes these APIs, the companion
-  degrades to blocking prompts that contain identifying values, and the user can still run
-  `panos-mcp pseudonym reveal`.
-- **Verify at implementation**: event names and payloads against the build in use; pin a
-  minimum Claude Code version in the plugin manifest.
+| Need | API | Finding |
+|---|---|---|
+| Rewrite MCP results | `on('tool.call', { tool }, hook)` | `await next(e)` runs the tool and resolves to `{ ref, result, text }`, or `{ …, isError: true }`. Returning `{ result }` hands the model the hook's result instead: core validates it against the tool's output schema and records it as the tool's result. Returning `{ deny }` after the tool ran withholds the result, and the model reads "`<tool>` ran, and a plugin withheld its result: `<text>`". The optional `context: string[]` is read by the model and never shown to the user. |
+| Translate arguments | same hook | `next({ ...e, ...args })` runs the tool with rewritten arguments. MCP tool input is `{ tool: 'mcp__<server>__<tool>', tool_use_id, ...args }`. `tool` and `tool_use_id` are reserved. |
+| Subagents | same hook | `tool.call` fires for subagent calls too (`agentId` set), so they are covered. |
+| Rewrite questions | `on('prompt.submit', hook)` | `next({ ...e, text })` rewrites what reaches the model, and the user's row follows. `{ drop: reason }` stops it. `e.text` holds pastes already expanded, so **text pastes in the question are covered** (attachments are not). When `e.command` is set (slash command), a rewrite of `text` is not applied. |
+| Tell the model about stand-ins | `on('prompt.compose', hook)` | A section appended with `scope: 'session'` goes into the system prompt (FR-029). |
+| Reveal on screen | `on('ui.render', { component }, hook)` for `AssistantMessage`, `UserMessage`, `ToolUse`, `ToolResult` | A rewrite changes the drawing only; the stored message and what the model reads stay the same. |
+| Run the engine | `$.process.run(argv, { stdin, timeoutMs })` | Runs a local command by argv without a shell. Timeout 30 s by default. **Time spent waiting does not count against the hook budget.** |
+| Learn names in advance | `$.mcp.call(server, tool, args)` | A plugin can call a connected server's tool with the engine's own connection. The result goes to the plugin, not to the model. |
+| Notices | `$.ui.toast`, `$.ui.status` | Short user-visible notices. |
 
-## R2. Where pseudonymization happens in the server
+**Fail-open defaults** (all confirmed):
 
-- **Decision**: one choke point in `server.readonly_tool`. Before the tool runs, arguments are
-  translated from stand-ins to real values (R5). After it runs, the `ToolResult`, or the
-  `ToolErrorInfo` on failure, is pseudonymized as a typed model, and the summary is built
-  from the pseudonymized model. The server instructions and the TLS warning are pseudonymized
-  too. No tool handler changes.
-- **Rationale**: every result already goes through this wrapper, so nothing can bypass it.
-  Pseudonymizing typed models, not rendered JSON, lets each field be classified by meaning
-  instead of guessing from text.
-- **Alternatives considered**: post-processing the JSON text with regexes (cannot tell a rule
-  name from an enum value, fails open); pseudonymizing in the parsers (would leak through
-  error messages and summaries built elsewhere).
+- A hook that throws, returns a wrong shape or runs past its budget (10 s of its own time) is
+  skipped. The tool runs and its result reaches the model, or the prompt goes through.
+- **Decision**: every guard registration carries a `.catch` that refuses in its place:
+  `tool.call` → `{ deny }` whether or not `next` was called; `prompt.submit` →
+  `{ drop }` when `next` was not called. The `.catch` has a 1 s grace and must not call the
+  engine. A contract test covers each case.
 
-## R3. Classifying fields (fail closed)
+**Surfaces and reveal** (finding that changes Story 4):
 
-- **Decision**: every `str` field (and `list[str]`) of the result models in `models/` carries
-  a classification, as `Annotated[str, Pii(Kind.RULE_NAME)]` or `Annotated[str, Keep]`. The
-  walker pseudonymizes by the annotation. Unannotated strings are treated as `TEXT`
-  (whole-value stand-in, FR-007). A contract test walks every model reachable from every
-  tool's return type and fails on any unannotated string field, so a new field cannot slip
-  through silently.
-- **Enum-typed fields, numbers, booleans, timestamps** pass unchanged (FR-003).
-- **Keep values**: the existing `samples/sanitize/keeplist.py` `BUILTIN` set (PAN-OS
-  built-ins, predefined applications and services) is moved to a shared module and used by
-  both the sample sanitizer and the live pseudonymizer (FR-003). The operator keep list and
-  hide list (FR-018) are added on top.
-- **Kinds**: `IP` (address, prefix, range, wildcard), `FQDN`, `HOSTNAME`, `URL`, `EMAIL`,
-  `MAC`, `SERIAL`, `USER`, `GROUP`, and one name kind per object type: `DEVICE_NAME`,
-  `DEVICE_GROUP`, `TEMPLATE`, `TEMPLATE_STACK`, `RULE_NAME`, `ADDRESS`, `ADDRESS_GROUP`,
-  `SERVICE`, `SERVICE_GROUP`, `APP_GROUP`, `TAG`, `ZONE`, `PROFILE_GROUP`, `INTERFACE`,
-  `VSYS`. Plus `TEXT` (descriptions, free log fields) and `MIXED` (strings such as Panorama
-  error text or dynamic-group filters, which are scanned for embedded values, then tokenised).
+- `e.surface` is `terminal`, `desktop`, `vscode` or `mobile`. The declarations state that the
+  desktop, VS Code and mobile tables are *remote* surfaces: the engine sends the tree to a
+  client over its control protocol.
+- **Claude Code for VS Code attaches no surface yet: no `ui.render` names `vscode` today.**
+  Sessions in the VS Code extension and in the desktop app draw no terminal.
+- `e.surface` "is what the client declared … not a trust signal: do not key policy on it".
+  The terminal's own attachment raises no `session.attach`. A remote client attaching raises
+  `session.attach` with the surface it claims.
+- **Decision**: reveal only on `terminal`. If any client attaches claiming `terminal`
+  (possible only for a remote client), stop revealing for the rest of the session and show a
+  notice. Mobile and other remote views of a terminal session show stand-ins.
+- **Sessions without a terminal** (spec FR-031, clarified 2026-10-18): when
+  `$.session.surfaces()` does not list `terminal` (VS Code extension, desktop app, `-p`), the
+  guard blocks every question and withholds every protected result, with a message to use
+  Claude Code in a terminal. This is checked at `session.start` and again in each guard hook,
+  because the result of that call can change during a session.
+- **Later**: if the VS Code extension gains a render surface, or applies the classic
+  `MessageDisplay` hook (display-only), FR-031 can be relaxed for it by a spec change.
 
-## R4. Stand-in formats
+**Rejected alternatives**: classic shell hooks only (`UserPromptSubmit`, `PostToolUse`). They
+can add context and block, but cannot rewrite the question or the display. A proxy MCP server
+that wraps the others: it needs changes to the MCP configuration (FR-001) and cannot see the
+questions or the display.
 
-Constraints: same kind and shape (FR-005); consistent per user and secret (FR-004); different
-real values give different stand-ins; unreadable without the secret (FR-006); fast at
-10,000-rule scale (SC-006).
+**Verify at implementation**:
+- the shape of `result` for an MCP tool from core (expected: `McpToolResult` with `content`,
+  `isError`, `structuredContent`), and the shape a hook must return for `{ result }`;
+- whether a hook can replace an errored MCP result with `{ result }`. Fallback: deliver the
+  pseudonymized error text through `{ deny: text }`;
+- how to map a tool name `mcp__<server>__<tool>` to the server name when names contain `__`
+  (expected: the connected-tool listing `ContextMcpTool { name, server }`);
+- pin the minimum Claude Code version in the manifest.
 
-- **IP addresses: keyed, prefix-preserving permutation** (the Crypto-PAn construction, with
-  HMAC-SHA256 as the pseudo-random function instead of AES, so no new dependency). It is a
-  bijection, so it can be inverted with the key and needs no table, and it preserves the
-  length of every shared prefix. That keeps any subnet containment and range order the model
-  needs. Address class is preserved by fixing the bits of the containing special block:
-  `10/8`, `172.16/12`, `192.168/16`, `100.64/10`, `127/8`, `169.254/16`, multicast,
-  broadcast, the documentation ranges, `fc00::/7`, `fe80::/10`. Public IPv4 addresses keep
-  their first octet and IPv6 global addresses keep their first 16 bits, so they stay public.
-  That reveals the /8 (/16 for IPv6) of public addresses, which identifies a registry
-  allocation, not an organisation. This residual is accepted and documented. Masks
-  (`255.255.255.0`), `any` and `0.0.0.0/0` pass unchanged.
-- **Ambiguity**: a stand-in IP may equal some other real IP of the estate (unavoidable for a
-  bijection). This is harmless because the model only ever sees stand-ins (FR-001, FR-022), so
-  every IP coming back from the model is a stand-in and is inverted. See R5.
-- **Names**: `<prefix>-<base32(HMAC(key, kind ‖ real))[:6]>`, lower case. Examples: `rule-k3f9qa`,
-  `addr-…`, `grp-…`, `svc-…`, `svcg-…`, `appg-…`, `tag-…`, `zone-…`, `dg-…`, `tpl-…`,
-  `stk-…`, `fw-…`, `prof-…`, `if-…`. The prefix tells the model the object type (it would
-  infer it anyway). A collision within a kind extends the suffix by two characters. Stand-ins
-  are valid PAN-OS names. A reverse table is required (R7).
-- **FQDN / hostname**: each label below the public suffix is replaced, keyed by its full
-  parent chain (`app.corp.example.com` → `h-9x2.d-k7q.example.com`… with `example` itself
-  replaced: `h-9x2.d-k7q.d-p1m.com`). Labels sharing a parent stay sharing it (FR-005). The
-  TLD is kept.
-- **URL**: scheme kept, host as FQDN, path and query replaced by `/p-<token>`.
-- **Email**: `u-<token>@<fqdn stand-in>`. **User**: `DOMAIN\user` → `dom-<t>\u-<t>`;
-  `user@realm` like email.
-- **MAC**: locally-administered prefix `02:` plus keyed bytes (hides vendor OUI).
-- **Serial**: 12 digits starting `99`, keyed; collisions extend the attempt counter (as in
-  `Forger._mapped`).
-- **TEXT**: `text-<token>`. The model learns only that a description exists and whether two
-  descriptions are equal. **MIXED**: embedded IPs, FQDNs, emails and known names are replaced
-  in place, and everything else is kept only if it is built-in vocabulary. Otherwise the whole
-  value becomes `text-<token>`.
-- **Alternatives considered**: reuse the sample `Forger` octet scheme as is (keeps /8, /16 and
-  /24 containment only, so a `/20` or `/27` would break SC-002); format-preserving encryption
-  (FF3-1) for names (needs a new dependency and still needs a name alphabet; reversibility
-  without a table is not needed for names since a table is kept anyway); random tokens
-  without a key (not consistent across restarts).
+## R2. Engine placement and process model
 
-## R5. Translating tool arguments
+- **Decision**: one Python engine, `mcp-privacy-guard`, called by the plugin through
+  `$.process.run`, with one short-lived process per call (JSON on stdin and stdout). There is
+  no daemon and no listener (Principles II and VII).
+- Calls per protected tool call: `args` before the tool, `result` after it. Each returns the
+  reveal-table entries added since the plugin's last revision, so no separate sync call is
+  needed.
+- **Cost**: Python start-up with stdlib imports and SQLite is about 50–100 ms on the
+  developer's machine (Python 3.14). Two calls plus processing of 500 records must stay under
+  1 s (SC-006). A benchmark test enforces it.
+- **Alternative held in reserve**: a long-lived helper over `$.process.spawn` stdio. It would
+  be adopted only if the benchmark fails, and recorded in Complexity Tracking.
+- **Rejected**: the engine as an MCP server (the model would see its tools); logic in
+  TypeScript (two implementations, Principle V).
 
-- **Decision**: the wrapper walks the tool's keyword arguments by their declared input types,
-  which are annotated like the models. IP-typed arguments, and IPs inside filters, are
-  always inverted. Name-typed arguments are looked up in the reverse table; an unknown token
-  is passed through as a literal (FR-010), so Panorama answers "not found". The not-found
-  error and any "did you mean" suggestions are pseudonymized like any output. Log filter
-  strings are parsed by the existing log-filter builder, values are translated, and the
-  filter is rebuilt. Validation, `xpath_literal` and the allow-list then run on the real values
-  unchanged (FR-011).
-- **Spec impact (FR-009)**: since the user's question is pseudonymized (FR-022), real values
-  can no longer reach the model, and an IP argument cannot be both a stand-in and a real value.
-  Proposal: FR-009 becomes "a name argument that is not a known stand-in is used as typed",
-  and IP arguments are always read as stand-ins. **The spec has been updated accordingly**
-  (FR-009, Story 2 scenario 2).
+## R3. Engine language, packaging and dependencies
 
-## R6. Python side of the companion: CLI, not a second server
+- **Decision**: Python ≥ 3.11 (needed for `tomllib`), **standard library only at runtime**:
+  `hmac`, `hashlib`, `secrets`, `ipaddress`, `sqlite3`, `json`, `tomllib`, `re`, `base64`.
+  Packaged with `pyproject.toml` (hatchling build backend, a build-time dependency only).
+  Installed with `uv tool install` or `pipx`, which puts `mcp-privacy-guard` on `PATH`.
+- The plugin calls the command named by its user option `enginePath` (default
+  `mcp-privacy-guard`). If the engine is missing, too old or broken, `session.start` reports
+  it, and every protected result and every question is blocked (fail closed).
+- **Dev dependencies**: `pytest`, `hypothesis` (property tests), `ruff`, `mypy`, and `mcp`
+  (the Python SDK, only for the generic test MCP server used in end-to-end tests).
+- **Rejected**: bundling the engine inside the plugin folder as a zipapp. It would be one
+  install instead of two, but the interaction of `python -I` with zipapps and the choice of
+  interpreter need checking. Kept as a possible later improvement.
 
-- **Decision**: a new CLI group `panos-mcp pseudonym` (same package, same store) that the
-  plugin calls through `$.process.run`, JSON on stdin and stdout:
-  - `pseudonym prompt`: pseudonymize a question (shape detection plus the name dictionary,
-    R8). Returns the text, the replacements made and the warnings. Exit code ≠ 0 means the
-    plugin drops the prompt.
-  - `pseudonym table --since <rev>`: the stand-in → real entries added since a revision, for
-    the plugin's in-memory reveal table.
-  - `pseudonym reveal`: reveal a text (manual fallback; also used by tests).
-  - `pseudonym status`: secret present and readable, store revision, categories covered.
-- **Rationale**: keeps the TypeScript shim free of cryptography and classification, and
-  keeps one implementation tested by the existing Python suite. No network listener
-  (constitution). The cost is about 0.2–0.4 s of Python start-up per prompt, which is
-  acceptable. Reveal does not use the process, so rendering stays instant (SC-005).
-- **Alternatives considered**: the plugin reading the store directly (duplicates logic in
-  TypeScript); a long-lived helper over stdio (more moving parts, needed only if start-up
-  latency proves a problem: **verify at implementation**); an MCP tool for reveal (the model
-  would see its output, so rejected).
+## R4. Classifying values without typed models
 
-## R7. The store: secret and mapping record
+The engine sees JSON (structured content, or text blocks that parse as JSON) or plain text.
+It never knows a server's types, so classification comes from the server's profile (R5) and,
+failing that, from shape.
 
-- **Decision**: directory `~/.config/panos-mcp/pseudonym/` (overridable with
-  `PANOS_MCP_PSEUDONYM_DIR`). Its key is separate from the sample-sanitizer key, so sample
-  data and live data never share stand-ins. It holds:
-  - `secret.key`: 32 random bytes, created on first start with mode `0600` in a `0700`
-    directory. If the file exists but cannot be read, or its permissions are broader than the
-    owner's, the server refuses to serve data (FR-013).
-  - `mapping.sqlite` (stdlib `sqlite3`, WAL mode, `0600`): table
-    `standin(kind, standin, real, first_seen, rev)` with unique indexes on `(kind, real)` and
-    `standin`, plus table `names(kind, real)`, the name dictionary for prompts (R8). It is
-    written by the server and read and written by the CLI. Concurrent access between two
-    processes is handled by SQLite.
-- The directory is refused if it lies inside a git work tree that does not ignore it (reuse
-  `_git_tracks`).
-- **Logging**: the store never logs values. The log redaction filter gains a rule for
-  stand-in pairs (FR-014).
-- **Rotation / loss** (spec edge case): a new secret starts a new store. Stand-ins of the old
-  one are reported as "unknown stand-in (issued with another secret)" by reveal, never
-  guessed.
+For each JSON string value, in order:
 
-## R8. Recognising identifying values in questions (FR-023)
+1. **Hide list** (operator) → `TEXT`.
+2. **Keep list** (operator) → passed through unchanged.
+3. **Profile field rule** matching the value's path → that rule's kind, or its enum (R5).
+4. **Built-in safe forms** → unchanged: RFC 3339 / ISO 8601 timestamps, durations, numbers
+   written as strings with up to 6 digits, booleans and `null` spelled as strings, and the
+   profile's and built-in vocabulary (`allow`, `deny`, `tcp`, `udp`, `info`, `critical`,
+   well-known service names, …).
+5. **Whole-value shape** → IP / prefix / range / wildcard, URL, e-mail, MAC, `DOMAIN\user`,
+   FQDN (ends in a public suffix), digit strings of 7 or more digits (`DIGITS`).
+6. **Single token** (no whitespace) → `NAME` (`n-…`).
+7. **Text with whitespace** → `MIXED` (R6).
 
-- **Shapes**: IPv4/IPv6 addresses, prefixes and ranges; FQDNs (with a public-suffix check
-  against a small bundled list); e-mail; MAC; 12-digit serials; `DOMAIN\user`. Each is
-  replaced with the same function as tool output, so the stand-ins match (SC-008).
-- **Names**: whole-token, case-sensitive match against the name dictionary in the store. The
-  server fills the dictionary:
-  1. from every result it pseudonymizes;
-  2. by a background warm-up at start-up that reads the device, device-group, template, tag,
-     zone, rule and object names of the configuration through the existing cached, read-only
-     service calls, with bounded concurrency. The prompt CLI never contacts Panorama.
-- **Common words** (spec edge case): a name that is also in a bundled common-word list (about
-  5,000 English words plus networking terms such as `inside`, `outside`, `trust`, `dmz`,
-  `web`, `test`) is replaced only when quoted, back-ticked, or preceded within three tokens by
-  a cue word (`rule`, `object`, `group`, `zone`, `tag`, `device group`, `template`,
-  `firewall`, `address`, `service`). The user sees every replacement (FR-025), so a missed or
-  over-eager match is visible.
-- **Before the warm-up completes**, names not yet seen are not recognised. `pseudonym status`
-  reports the warm-up state, and the plugin shows "name list still loading" in the status line
-  until it is complete. **Residual risk**: a rule name typed before the warm-up ends reaches
-  the model. Documented.
+JSON numbers, booleans and `null` pass unchanged. Arrays and objects are walked.
 
-## R9. Other ways real data could reach the model in Claude Code
+**Object keys**: kept when they look like a schema field name: at most 4 tokens after
+splitting on `_`, `-`, `.` and camelCase, no digits, every token in the bundled common-word
+list or in the vocabulary (`source_address`, `ruleName`). Otherwise the key is pseudonymized
+like a value. A profile can force either behaviour for a path (`keys = "keep" | "hide"`).
+**Residual risk**: an identifying key made only of common words (a host called `mercury`
+used as a dict key) passes in the default profile. This is documented, and profiles can
+close it.
 
-- **The model reading the store or calling the CLI**: with its own `Bash`, `Read` or `Grep`
-  tools the model could run `panos-mcp pseudonym table` or read `mapping.sqlite`. Decision:
-  the plugin's `tool.call` guard denies any built-in tool call whose input names the store
-  directory, `panos-mcp pseudonym`, or the server's configuration file. It is best effort
-  (spellings vary), so the documentation also gives Claude Code permission `deny` rules for
-  the same paths and commands as defence in depth.
-- **Pre-existing, out of scope but documented**: the model reading the Panorama API key from
-  the MCP client configuration and querying Panorama directly through `Bash`. The same deny
-  rules cover the config file.
-- **Files and pastes** (spec Assumptions): out of scope.
-- **Compaction summaries, titles, prompt suggestions**: these are generated by the model from
-  the stand-in transcript, so they contain stand-ins only. They are revealed on display when
-  drawn as `AssistantMessage`.
-- **Transcript on disk**: holds stand-ins (rewrites happen before storing), so `--resume`
-  works and reveals again.
+**Rejected**: regex-only rewriting of the JSON text. It cannot tell an enum from a name, and
+it fails open.
 
-## R10. Plugin implementation language versus the constitution
+## R5. Profiles
 
-- **Finding**: Claude Code plugins are TypeScript modules (`hooks/register.ts`). The
-  constitution says: "Introducing another language for runtime code requires a MAJOR
-  amendment."
-- **Decision**: propose constitution **v2.0.0**. Runtime code stays Python, with one
-  exception: a client-integration shim may be written in the language its host client
-  requires, if it holds no pseudonymization, classification or Panorama logic, delegates to
-  the Python CLI, and is tested with the host's own test runner. The amendment is a
-  prerequisite task, before any plugin code.
-- **Alternative considered**: Claude Code "classic" shell hooks in Python
-  (`UserPromptSubmit`). They can block or add context but cannot rewrite the prompt or the
-  display, so they fail FR-015 and FR-022. Rejected.
+- **Format**: TOML (stdlib `tomllib`, easy to read and comment). One file per profile.
+  Profiles ship in the package (`default`, `panos-mcp`), and operators add theirs in
+  `<home>/profiles/`. The format is in [contracts/profile-format.md](./contracts/profile-format.md).
+- **Selection**: the operator config maps a server alias to a profile explicitly. Otherwise
+  the profile whose `servers` globs match the alias wins (a user profile beats a bundled one).
+  Otherwise the default profile is used.
+- **Field rules** use path patterns over JSON (`**.rules[].name`, `entries[].source`) with an
+  optional tool filter. The first match wins, and tool-specific rules are tried before
+  general ones.
+- **A profile cannot weaken protection (FR-014)**. A profile cannot declare "keep this
+  field". It can only:
+  - give a field a kind (making it more precise);
+  - declare an `enum` for a field: values in the enum pass, and **any other value is
+    pseudonymized as `NAME`**;
+  - add vocabulary words: closed lists of values that pass anywhere.
 
-## R11. Testing
+  Shape detection still runs inside enum and vocabulary values (a vocabulary entry that is an
+  IP or e-mail is refused when the profile loads). So a profile can make results more
+  readable only by listing safe values explicitly.
+- **Name kinds**: a profile declares its own name kinds (for `panos-mcp`: `RULE_NAME`,
+  `ADDRESS`, `ZONE`, `DEVICE_NAME`, …) with cue words for recognising names in questions.
+  Kinds do **not** change the stand-in: every name is `n-<token>` (spec FR-009, clarified
+  2026-10-18). A kind still matters: it marks the value as a name to learn for questions,
+  and it selects the cue words.
+- **Invalid profile** → default profile for that server, plus a toast and a status line
+  (FR-015). A `check-profile` subcommand validates a file before use (SC-008).
 
-- **Python** (offline, as today):
-  - Unit tests: stand-in formats, prefix preservation (property tests over random networks),
-    inversion, collisions, store permissions and refusal, prompt recognition, common-word
-    rule.
-  - Contract tests:
-    - every tool returns no real value (SC-001), using the values found in the sample
-      library as "real";
-    - every result-model string field is classified (R3);
-    - tool names and schemas are unchanged (snapshot);
-    - arguments round-trip (SC-003);
-    - errors are pseudonymized.
-  - Benchmark: the large estate with pseudonymization on stays under 5 s (SC-006).
-- **Plugin**: `claude plugin validate` and `claude plugin test` with `*.test.ts`:
-  - a prompt is rewritten;
-  - a CLI failure drops the prompt (Caveat 1);
-  - a slash command carrying values is dropped;
-  - reveal on `terminal`, none on `mobile`;
-  - unknown stand-ins are marked;
-  - the guard denies reads of the store.
+## R6. Free text and plain-text results
 
-  These need the `claude` CLI. They are a local gate and a CI job that is skipped when the
-  CLI is absent. **Verify at implementation** whether CI can install it.
-- **End to end**: a quickstart scenario with the offline demo (`PANOS_MCP_SAMPLES_SCENARIO`)
-  and the plugin loaded through `--plugin-dir` (see [quickstart.md](./quickstart.md)).
+- **MIXED** (spec edge case "values inside free text"): replace embedded values found by shape
+  (IP, CIDR, URL, e-mail, MAC, FQDN, `DOMAIN\user`, long digit runs) and dictionary names. Then
+  check every remaining word against the vocabulary plus the common-word list. If all are
+  known, keep the text with its replacements. Otherwise the whole unit becomes `text-…`.
+- **Unit**: a JSON string value, or one line of a plain-text block. Line granularity keeps
+  plain-text output partly readable instead of hiding a whole block. A profile can set
+  `text.mode = "whole"` to hide whole blocks.
+- **Text block that parses as JSON**: walked as JSON and re-serialised with the same
+  formatting style (compact or indented).
+- **Non-text blocks** (image, audio, resource, resource_link with embedded data): removed and
+  replaced by one text block "[privacy-guard: n non-text item(s) withheld]".
+- **Limits**: a result over 2 MB of text, or one whose processing passes its timeout (10 s),
+  is withheld as a whole (FR-007).
 
-## R12. Offline demo and samples
+## R7. Stand-in formats
 
-- Pseudonymization is always on (FR-017), including with `PANOS_MCP_SAMPLES_SCENARIO`. The
-  demo uses a throwaway store under the scenario's temp directory unless
-  `PANOS_MCP_PSEUDONYM_DIR` is set, so demos do not fill the user's real store.
-- Tests use an ephemeral in-memory store with a fixed test key, like
-  `MappingStore.ephemeral`.
+The full table is in [contracts/standin-formats.md](./contracts/standin-formats.md).
+
+- **IPs: keyed prefix-preserving permutation** (Crypto-PAn construction with HMAC-SHA256 as
+  the pseudo-random function, so no AES dependency). It is a bijection that keeps the length
+  of every shared prefix (subnet containment, range order), and can be inverted with the
+  key. The class of special blocks is preserved by fixing the block's bits (RFC 1918,
+  CGNAT, loopback, link-local, multicast, documentation ranges, ULA, link-local v6). Public
+  IPv4 addresses keep their first octet and global IPv6 addresses their first 16 bits, so
+  they stay public. **Residual risk**: this reveals the /8 (/16 for IPv6) of public addresses,
+  which identifies a registry allocation, not an organisation. Documented. Masks,
+  `0.0.0.0/0` and `any` pass unchanged. Results are cached per process.
+- **Names**: `n-<token>`, where the token is `t(6)` of HMAC(secret, `name` ‖ real). It does
+  not depend on the kind, the field or the server, so one real name has exactly one stand-in
+  everywhere. The model correlates configuration, logs and servers by plain string equality
+  (FR-008, FR-009, clarified 2026-10-18), and it infers the kind from context (the field
+  name, the surrounding words). A collision lengthens the token by 2.
+- **Rejected**: kind prefixes (`rule-…`, `fw-…`). The same value could then appear with two
+  prefixes when profiles or fields disagree, which breaks correlation, the end goal.
+- **FQDN**: each label below the public suffix is replaced by a token keyed on its parent
+  chain (`h-` for the leftmost label, `d-` for the others). The public suffix is kept, and
+  labels that share a parent keep sharing it.
+- **URL**: scheme kept, host as FQDN or IP, port kept, path, query and fragment replaced by
+  `/p-<token>`.
+- **E-mail**: `u-<token>@<fqdn stand-in>`. **User**: `DOMAIN\user` → `dom-<t>\u-<t>`.
+- **MAC**: locally administered `02:` plus keyed bytes. **DIGITS**: same length, keyed,
+  first digit non-zero.
+- **TEXT**: `text-<t(8)>`. The model learns only that two texts are equal or different.
+- **Ambiguity**: a stand-in IP may equal some real IP. This is harmless because every value
+  coming from the model is read as a stand-in (spec edge case).
+
+## R8. Translating tool arguments
+
+- `args` walks every string in the arguments, for protected and exempt servers alike:
+  - IP forms (also inside strings: filters, ranges) → inverted with the key, whether or not
+    they were issued;
+  - `n-<token>` with a known token → real value;
+  - FQDN, e-mail, user, URL and TEXT stand-ins → through the table;
+  - anything else → unchanged.
+- An unknown stand-in is passed as typed. The server then answers "not found", and that
+  answer is pseudonymized like any result, so no mapping leaks (FR-012).
+- Argument keys are never changed.
+
+## R9. Questions (FR-017–FR-020)
+
+- **Shapes**: as in R4 step 5, applied inside the text, with the same functions as for
+  results, so the stand-ins match (SC-007).
+- **Names**: whole-token, case-sensitive match against the name dictionary (store `names`
+  table). The dictionary is filled:
+  1. from every result the engine pseudonymizes (names of every kind, with the server and
+     the kind);
+  2. by an optional **warm-up**. A profile may list read-only tools to call at session start
+     (for `panos-mcp`: device groups, templates, devices, zones, tags, rules and objects
+     listings). The plugin calls them with `$.mcp.call` and passes the results to
+     `mcp-privacy-guard learn`, which records names and returns nothing. The results never
+     reach the model. The engine itself contacts no data source (Principle II).
+- **Common words**: a dictionary name that is also in the common-word list (`web`, `test`,
+  `inside`) is replaced only when it is quoted or back-ticked, or preceded within three
+  tokens by a cue word of its kind (the profile's `cues`, plus generic ones: `server`,
+  `host`, `object`, `group`, `rule`).
+- **Before warm-up ends** (or with no warm-up), names never seen are not recognised. The
+  status line says "name list loading". **Residual risk**: documented. The user sees every
+  replacement (FR-020), so they can spot a missed name.
+- **Pasted text** is part of `e.text` and is handled like typed text (FR-017).
+- **Attachments**: when `e.attachments` is present (images or other non-text items), the
+  plugin drops the submission with "paste the text instead" (FR-032). The engine is not
+  called.
+- **Slash commands**: when `e.command` is set, the engine checks the line. If it holds an
+  identifying value, the submission is dropped with "ask as a plain question". Otherwise it
+  passes.
+- **Bundled lists**: common words (about 5,000 lower-case English words, with no proper
+  nouns, plus networking terms) and the Public Suffix List (MPL-2.0, snapshot updated by a
+  script and attributed in NOTICE).
+
+## R10. Reveal
+
+- The plugin holds the reveal table (`stand-in → real, kind`) **in module memory only**. It is
+  filled from the `table` field that every engine reply carries, and fully at
+  `session.start` (`table --since 0`). It is never in `$.store` or `$.state` and never on
+  disk.
+- `ui.render` on `terminal` (R1): longest-match substitution of known stand-ins in the text
+  or props. Revealed values are highlighted. Unknown stand-ins that match the recognition
+  pattern (from the engine's `status`) are marked with a dim `(?)`.
+- **Unissued IPs**: the model may write a stand-in IP that was never issued (the next address
+  in a stand-in subnet). At `turn.complete` the plugin sends the final assistant text to
+  `mcp-privacy-guard observe`, which inverts IP forms with the key, records them, and returns
+  the new table entries. The plugin then invalidates the rows it drew.
+- **Manual reveal** (fallback, e.g. text copied from a transcript): `mcp-privacy-guard
+  reveal`, run by the user in their own terminal, reads text on stdin and prints it revealed.
+
+## R11. Self-protection (FR-024–FR-026)
+
+- **Store**: `<home>/store/secret.key` (32 random bytes) and `<home>/store/mapping.sqlite`,
+  where `<home>` defaults to `~/.config/mcp-privacy-guard` (or `$MCP_PRIVACY_GUARD_HOME`).
+  Files `0600`, directories `0700`. If permissions are broader, or the secret exists but
+  cannot be read, the engine exits with code 3 and the plugin blocks. A missing secret is
+  created on first use. The store is refused inside a git work tree that does not ignore it.
+- **The model's tools**: a `tool.call` guard on built-in tools (`Bash`, `Read`, `Grep`, `Glob`,
+  `Edit`, `Write`, `NotebookEdit`, and any tool with a path argument) denies inputs that name
+  the guard's home, the engine command, or the plugin's own folder. Without the last one,
+  the model could edit the plugin and have it hot-reload. This is best effort, because
+  spellings vary.
+- **Sandbox required** (spec FR-026, clarified 2026-10-18): the plugin reads the merged
+  settings with `$.settings.read()` at `session.start` and in each guard hook. It requires:
+  - the sandbox to be enabled;
+  - `<home>` in the sandbox's filesystem read-deny list;
+  - unsandboxed commands not allowed.
+
+  If any of these is missing, every question is blocked and every protected result is
+  withheld, with the exact settings to add. The built-in tool guard also denies any `Bash`
+  call with `dangerouslyDisableSandbox: true`. Permission `deny` rules for `Read`/`Grep`/
+  `Glob` on `<home>` are documented as well, because the sandbox covers shell commands.
+- **Verify at implementation**: the exact settings keys for sandbox enablement, read-deny
+  paths and unsandboxed-command escape in Claude Code 2.1.301, and whether managed (`policy`)
+  settings can enforce them.
+- **Config tampering**: the operator config (exemptions, keep list) lives in `<home>`, so it is
+  covered by the same guard.
+
+## R12. Testing
+
+- **Engine** (pytest, offline, ephemeral store with a fixed test key):
+  - unit: each stand-in format, Crypto-PAn inversion and prefix preservation (hypothesis over
+    random networks), collisions, classification order, MIXED rule, profile loading and
+    refusals, store permissions, prompt recognition, common-word rule;
+  - contract: CLI exit codes and JSON shapes, `--help` lists no disable option, and no
+    setting turns the guard off;
+  - **leak tests**: recorded `panos-mcp` offline-demo results for every tool (fixtures
+    captured once from `PANOS_MCP_SAMPLES_SCENARIO`), and results of the generic test MCP
+    server seeded with known "real" values. Assert that no real value appears in what the
+    model would receive, using both the `panos-mcp` profile and the default profile;
+  - consistency across processes and restarts (SC-004), and argument round-trips (SC-003);
+  - benchmark: two engine calls plus 500 records under 1 s (SC-006).
+- **Plugin** (`claude plugin validate`, `claude plugin test`, `*.test.ts`): result rewrite,
+  withhold on engine failure, throw and timeout, prompt rewrite and drop, slash command
+  drop, attachment drop, block in a session without `terminal`, block without the required
+  sandbox settings, deny of `dangerouslyDisableSandbox`, reveal on `terminal` and none on
+  other surfaces, reveal stopped after a spoofed
+  `terminal` attach, unknown stand-ins marked, built-in tool guard. The job is skipped
+  visibly in CI when the `claude` CLI is absent.
+- **End to end**: [quickstart.md](./quickstart.md) with `panos-mcp` in offline demo mode and the
+  generic test server, the plugin loaded through `--plugin-dir`.

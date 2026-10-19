@@ -37,6 +37,6 @@
   MCP servers).
 - Claude Code is named as the supported client because it is a scope decision of the user, not
   an implementation choice.
-- research.md, data-model.md and contracts/ were carried over from the panos-mcp draft and still
-  describe a panos-mcp-embedded design in places; `/speckit-plan` must revise them (generic
-  `tool.call` rewriting, profiles, default profile, standalone engine).
+- research.md, data-model.md and contracts/ were rewritten by `/speckit-plan` on 2026-10-18 for
+  the generic design. The plan lists three open spec items (reveal surfaces, pastes, cross-server
+  stand-in wording).
