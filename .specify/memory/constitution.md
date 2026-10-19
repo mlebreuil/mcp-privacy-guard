@@ -51,21 +51,32 @@ someone adds.
 
 ### IV. Consistent, Shape-Preserving, Keyed Stand-ins
 
-- For a given user, the same real value MUST always get the same stand-in, across tools,
-  servers, conversations and restarts. Different real values MUST get different stand-ins.
+- Within one session, the same real value MUST always get the same stand-in, across tools,
+  servers and turns. Different real values MUST get different stand-ins.
+- Stand-ins MUST be valid only in the session that issued them. Each session uses its own
+  secret. The secret and the mapping are deleted when the session ends, and no record that
+  links a stand-in to a real value persists beyond it. A stand-in from an ended session MUST
+  never be translated or revealed, in any session.
 - Stand-ins MUST keep the kind and the relationships the model needs: subnet containment,
-  range order and address class for IPs, shared parent domains for FQDNs, the domain part of
-  user names, and the object type of names when known. Name stand-ins use a reserved,
-  recognisable form.
-- Stand-ins MUST come from a keyed cryptographic construction over a per-user secret. Anyone
+  range order and address class for IPs, shared parent domains for FQDNs, and the domain part
+  of user names.
+- Name stand-ins MUST use one reserved, recognisable form that does not depend on the object
+  type, the field or the server. One real name has exactly one stand-in everywhere, so the
+  model can correlate it across configuration, logs and servers by plain string equality. The
+  model infers the object type from context.
+- Stand-ins MUST come from a keyed cryptographic construction over the per-session secret. Anyone
   holding only stand-ins, or a list of candidate real values, MUST NOT be able to recover real
   values without the secret.
 - Values coming back from the model are always read as stand-ins. Reveal and argument
   translation replace only stand-ins they know. Unknown ones are left as they are and marked,
   never guessed, and translation never discloses other mappings.
 
-Rationale: consistency makes multi-step debugging possible, keeping shape keeps answers
-correct, and keying keeps the scheme safe against dictionary attacks.
+Rationale: consistency within a session makes multi-step debugging possible, keeping shape
+keeps answers correct, and keying keeps the scheme safe against dictionary attacks.
+Session-only stand-ins mean that nothing leaving the machine can be linked to real values,
+or to another session's stand-ins, once the session is over. A type-specific name
+form would give the same real name different stand-ins wherever its type is known differently
+(or not at all), and the model would lose the link between them.
 
 ### V. One Engine, Thin Client Shims
 
@@ -95,7 +106,8 @@ differ. One tested engine is the one place to audit.
     known real value appears in what the model receives.
   - **Fail-closed tests**: each failure path (engine error, timeout, unreadable secret,
     invalid profile, unsupported content, shim exception) withholds or blocks.
-  - **Consistency and structure tests**: determinism across restarts, no collisions,
+  - **Consistency and structure tests**: determinism within a session, unrelated stand-ins
+    across sessions, deletion of the session secret and mapping at session end, no collisions,
     property tests for prefix and range preservation, and argument round-trips.
   - **Reveal tests**: only known stand-ins are revealed, unknown ones are marked, and nothing
     is revealed on remote surfaces.
@@ -124,13 +136,14 @@ cannot be switched off, and read how it works.
 
 ## Security & Data Handling Constraints
 
-- The secret file and the mapping record are created owner-only (file `0600`, directory
-  `0700`). If their permissions are broader, or the secret exists but cannot be read, the
-  guard refuses to process questions and protected results until this is fixed. A missing
-  secret is created on first use.
+- The session secret and mapping are created owner-only (file `0600`, directory `0700`) when
+  the session starts, and deleted when it ends. If their permissions are broader, or they
+  are missing or unreadable during the session, the guard refuses to process questions and
+  protected results. It never silently creates a new secret mid-session.
 - The store directory MUST NOT lie inside a version-controlled tree that does not ignore it.
-- A lost or rotated secret starts a new store. Earlier stand-ins are reported as issued with
-  another secret, never revealed wrongly.
+- A conversation that carries stand-ins from an ended session (for example, a resumed one)
+  is blocked until a new conversation starts. Its stand-ins are never revealed wrongly or
+  translated with another session's secret.
 - Real data MUST NOT be committed to the repository. Test fixtures and samples use synthetic
   or sanitized data.
 - Third-party host APIs this project relies on (Claude Code plugin events and payloads) MUST
@@ -169,4 +182,4 @@ cannot be switched off, and read how it works.
 - Runtime development guidance for agents lives in `CLAUDE.md` (once created) and MUST NOT
   contradict this document.
 
-**Version**: 1.0.0 | **Ratified**: 2026-10-18 | **Last Amended**: 2026-10-18
+**Version**: 2.0.0 | **Ratified**: 2026-10-18 | **Last Amended**: 2026-10-19

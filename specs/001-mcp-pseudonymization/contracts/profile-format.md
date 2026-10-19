@@ -63,9 +63,9 @@ args = {}
 | `fields[].tools` | no | restrict the rule to these tool names |
 | `fields[].kind` | one of | a core or profile kind |
 | `fields[].enum` | one of | allowed safe values; **any other value becomes `NAME`** |
-| `fields[].keys` | one of | `keep` or `hide` for the keys of objects at this path |
+| `fields[].keys` | one of | `keep` or `hide` for the keys of objects at this path. `keep` never keeps a key of identifying shape (IP, FQDN, e-mail, MAC, URL, `DOMAIN\user`, 7+ digits) or a key on the hide list: those are pseudonymized as usual |
 | `text.mode` | no | `mixed` (default) or `whole` for plain-text blocks |
-| `warmup[].tool`, `.args` | no | read-only tools the plugin calls at session start to learn names |
+| `warmup[].tool`, `.args` | no | read-only tools the plugin calls at session start to learn names. Questions are held until they all complete in the session, and stay blocked if one fails (FR-034), so list only tools that exist and answer quickly |
 
 ## Path patterns
 
@@ -80,9 +80,16 @@ no rule matches use the default classification (research R4).
 
 - Mark a field as "keep". Only `enum` and `vocabulary` let values through, and only the
   values listed.
+- Keep an object key of identifying shape. `keys = "keep"` applies only to keys with no
+  identifying shape (FR-004 floor, analysis H3).
 - List a vocabulary or enum value that has an identifying shape (IP, FQDN, e-mail, MAC,
   URL, `DOMAIN\user`, 7+ digits). This is refused when the profile loads.
 - Override the operator hide list, or affect another server's data.
+- Drop a warm-up. A user profile or a `servers.<alias>.profile` override that applies to a
+  server whose bundled profile declares a `warmup` must declare one too. Otherwise it is
+  invalid (the bundled profile applies, with a notice, reason `warmup-required`). The only
+  way to stop holding questions for a server is `exempt = true`, which is shown in the status
+  (FR-002).
 
 ## Errors
 

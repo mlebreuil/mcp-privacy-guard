@@ -25,7 +25,9 @@ model. It:
 - shows the engineer the real values on their own screen.
 
 The MCP servers and the MCP configuration are not changed. Any MCP server, current or future,
-is covered.
+is covered. The guard is meant to be the only pseudonymization layer for MCP data: MCP
+servers no longer need to pseudonymize their own results. For `panos-mcp`, only its sample
+creation (turning data from a real Panorama into offline demo samples) keeps pseudonymizing.
 
 Terms used in this spec:
 
@@ -60,6 +62,25 @@ Terms used in this spec:
   identical everywhere, so correlation across logs, configuration and servers is exact; the
   model infers the kind from context.
 
+### Session 2026-10-19
+
+- Q: How long do stand-ins and their mapping live? → A: One session. "Key rotation is not
+  required during a session. Mappings are deleted at the end of the session." Then: "All
+  stand-ins should be only valid during one session. No persisted ones." Each session has
+  its own secret; the secret and the mapping are deleted when the session ends (exit,
+  `/clear`, restart). A new session gives the same real value a different stand-in.
+- Q (derived): What happens to a resumed conversation, whose history holds stand-ins of an
+  ended session? → A: It is blocked until a new conversation starts (`/clear`), because its
+  stand-ins can no longer be revealed or translated, and IP-shaped ones would be translated
+  wrongly with the new secret.
+- Q: Names typed in a question are recognised only once the guard knows them. Should a
+  question be allowed through while a server's name list is still loading at session start?
+  → A: No. Questions are held until every warm-up of the session has completed. If a
+  warm-up fails, questions stay blocked with the reason (FR-034).
+- Q: Does the guard sit next to pseudonymization inside the MCP servers? → A: No, it
+  replaces it completely. `panos-mcp` drops its own runtime pseudonymization; only its
+  sample creation keeps pseudonymizing real Panorama data into offline demo samples.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Use any MCP server without sending real data to the model (Priority: P1)
@@ -85,9 +106,9 @@ servers' real values appears while the answers are still structurally correct.
 2. **Given** an MCP server added to the configuration after the guard was installed, with no
    profile, **When** its tools return data, **Then** they are protected by the default
    profile, with no action from the user.
-3. **Given** the same real value appears in results from two different tools or servers, in
-   the same or a later conversation, **When** both reach the model, **Then** it has the same
-   stand-in in both.
+3. **Given** the same real value appears in results from two different tools or servers in
+   the same session, **When** both reach the model, **Then** it has the same stand-in in
+   both. In a later session it gets a different stand-in.
 4. **Given** two different real values, **When** they are pseudonymized, **Then** they get two
    different stand-ins.
 5. **Given** an address object `10.1.2.0/24` and a log entry from `10.1.2.15`, **When** both are
@@ -104,7 +125,7 @@ servers' real values appears while the answers are still structurally correct.
 ### User Story 2 - Follow-up tool calls using stand-ins (Priority: P1)
 
 The model only knows stand-ins, so its next tool calls use them ("show the rules that reference
-`addr-7f3c`", "query logs for source `10.83.4.12`"). The guard translates the stand-ins in the
+`n-k3f7qa`", "query logs for source `10.83.4.12`"). The guard translates the stand-ins in the
 arguments back to real values before the MCP server receives the call.
 
 **Why this priority**: without it multi-step investigations break.
@@ -146,8 +167,8 @@ results.
 1. **Given** a question containing a real IP, network, hostname, FQDN, serial, user, e-mail or
    MAC address, **When** it is submitted, **Then** the model receives that value as its
    stand-in.
-2. **Given** a question containing a name that a protected server has returned before, or that
-   is known through that server's profile (for `panos-mcp`: device groups, templates,
+2. **Given** a question containing a name that a protected server has returned earlier in the
+   session, or that is known through that server's profile (for `panos-mcp`: device groups, templates,
    firewalls, rules, objects, tags, zones), **When** it is submitted, **Then** the model
    receives that name as its stand-in.
 3. **Given** a real value typed in a question and the same value later returned by a tool,
@@ -160,6 +181,11 @@ results.
 6. **Given** a question that carries an image, file or document attachment, **When** it is
    submitted, **Then** it is blocked and does not reach the model, and the user is asked to
    paste the text instead.
+7. **Given** a session whose protected servers declare a warm-up that has not completed,
+   **When** a question is submitted, **Then** it is not sent, and the user is told the names
+   are still loading. Once every warm-up has completed, the user is told that questions are
+   accepted. **Given** a warm-up fails, **Then** questions stay blocked with the reason and
+   how to fix it.
 
 ---
 
@@ -248,9 +274,10 @@ reported status, add a keep value and an exemption, and check their effect.
    unchanged.
 3. **Given** an operator exempts a server by name, **When** that server's tools are used,
    **Then** their data is not pseudonymized, and the status shows the exemption.
-4. **Given** the local secret is missing on first use, **When** the guard starts, **Then** it
-   creates one. **Given** it exists but cannot be read, **Then** no protected tool result and no
-   question reaches the model until it is fixed.
+4. **Given** a new session, **When** the guard starts, **Then** it creates a new session
+   secret, and deletes it with the mapping when the session ends. **Given** the session
+   secret cannot be created or read, **Then** no protected tool result and no question reaches
+   the model.
 5. **Given** the guard is not installed or not loaded, **When** the user works with MCP
    servers, **Then** nothing is protected. The documentation states this clearly; detecting it
    is out of scope.
@@ -262,6 +289,9 @@ reported status, add a keep value and an exemption, and check their effect.
 - **Stand-in equal to a real value**: a stand-in IP may equal another real IP. Because the
   model only ever sees stand-ins, every value coming back from the model is read as a stand-in,
   so reveal and translation stay unambiguous. Name stand-ins use a reserved form.
+  The exceptions are values that reached the model unchanged (keep list, exempt servers).
+  They are recorded for the session and passed back as they are. An address that is both
+  such a value and a stand-in is refused rather than guessed.
 - **Values inside free text**: descriptions, log fields such as URLs, file names, user agents,
   and plain-text tool output may contain identifying data inside longer text. Embedded values
   of a known shape are replaced in place. Text that cannot be checked is replaced as a whole.
@@ -277,6 +307,11 @@ reported status, add a keep value and an exemption, and check their effect.
 - **Ordinary words that match names**: a name such as `web`, `inside` or `test` must not turn
   every use of that word in a question into a stand-in. Such names are replaced only where
   they clearly refer to an item; the user sees what was replaced.
+- **Questions at session start**: a name typed before the guard has learned it would reach
+  the model. When a server's profile declares a warm-up, questions are held until it has
+  completed (FR-034). Servers without a warm-up (for example under the default profile)
+  have their names learned only as their tools return them, so a name typed before that is
+  sent as typed. This residual risk is documented.
 - **Typos and partial names** in a question cannot be recognised and are sent as typed; the
   user sees what was replaced and can correct it.
 - **Slash commands** carrying identifying values cannot be rewritten; they are blocked with a
@@ -287,13 +322,18 @@ reported status, add a keep value and an exemption, and check their effect.
   be able to read the secret or the mapping, or run the reveal function. This is enforced by
   Claude Code's sandbox, which the guard requires (FR-026); without it the guard refuses to
   run.
-- **Lost or rotated secret**: earlier stand-ins can no longer be revealed or translated; the
-  user is told so in plain language instead of seeing wrong values.
+- **Session end**: the session's secret and mapping are deleted (exit, `/clear`, restart). A
+  session that ends abnormally (crash) has its files removed later. Stand-ins of an ended
+  session can never be revealed or translated again, including by manual reveal.
+- **Resumed conversations** hold stand-ins of an ended session. They are blocked until the
+  user starts a new conversation, with a plain-language message, instead of showing wrong
+  values (FR-033).
 - **Exempted server returning a stand-in**: values from an exempt server are passed through as
   is; stand-ins in arguments to an exempt server are still translated, so it receives real
   values.
-- **Several users**: different local secrets give different stand-ins; stand-ins cannot be
-  shared between users.
+- **Several sessions or users**: each session has its own secret, so stand-ins differ
+  between sessions, including two sessions of the same user running at once, and cannot be
+  shared or correlated between them.
 
 ## Requirements *(mandatory)*
 
@@ -323,9 +363,10 @@ reported status, add a keep value and an exemption, and check their effect.
   identifying (fail closed).
 - **FR-007**: If the guard cannot process a result (error, timeout, unsupported content), the
   result MUST be withheld from the model, never passed through.
-- **FR-008**: The same real value MUST always get the same stand-in for a given user, across
-  tools, servers, conversations and restarts. Different real values MUST get different
-  stand-ins.
+- **FR-008**: Within one session, the same real value MUST always get the same stand-in,
+  across tools, servers and turns. Different real values MUST get different stand-ins.
+  Stand-ins MUST be valid only in the session that issued them: a new session gives new
+  stand-ins, and nothing that links stand-ins to real values persists after the session.
 - **FR-009**: Stand-ins MUST be of the same kind as the value they replace and keep the
   relationships the model needs: IP stand-ins keep subnet containment, range order and address
   class; FQDN stand-ins keep shared parent domains; user names keep their domain part. Name
@@ -333,15 +374,17 @@ reported status, add a keep value and an exemption, and check their effect.
   stand-in everywhere, so the model can correlate it across configuration, logs and servers by
   plain string equality.
 - **FR-010**: No one holding only stand-ins, or a list of candidate real values, MUST be able
-  to recover real values without the user's local secret.
+  to recover real values without the session's secret.
 
 **Tool arguments**
 
 - **FR-011**: The guard MUST translate stand-ins in the arguments of every tool call to a
   protected or exempted MCP server back to real values before the server receives the call.
-- **FR-012**: Arguments MUST be read as stand-ins. A value in IP form is always translated. A
-  name that is not a known stand-in is passed as typed. Translation MUST NOT reveal any mapping
-  in errors or results.
+- **FR-012**: Arguments MUST be read as stand-ins. A value in IP form is translated, unless it
+  is a value that reached the model unchanged in this session (an operator keep-list value or
+  a result of an exempt server), which is passed as is. An IP form that is both is refused,
+  and the model is told to ask the user. A name that is not a known stand-in is passed as
+  typed. Translation MUST NOT reveal any mapping in errors or results.
 
 **Profiles**
 
@@ -361,12 +404,21 @@ reported status, add a keep value and an exemption, and check their effect.
   pasted into it, with their stand-ins before it is sent to the model provider, using the same stand-ins as tool results.
 - **FR-018**: Identifying values in questions MUST be recognised by shape (IPs, networks, FQDNs,
   serials, e-mail and MAC addresses, domain user names) and by matching names known from
-  earlier results and from profiles.
+  earlier results in the session and from profile warm-up.
 - **FR-019**: If a question cannot be checked, it MUST NOT be sent, and the user MUST be told
   why and how to fix it.
 - **FR-020**: The user MUST be able to see which values in their question were replaced.
 - **FR-032**: A question that carries an image, file or document attachment MUST NOT be sent.
   The user MUST be told to paste the text instead.
+- **FR-033**: In a resumed conversation (one that already holds turns from an ended session),
+  the guard MUST block every question and withhold every protected tool result, and tell
+  the user to start a new conversation.
+- **FR-034**: When the profile of a protected server declares a warm-up, no question
+  (including slash-command lines) MUST be sent until that warm-up has completed in the
+  current session. While a warm-up runs, the user MUST be told that names are loading, and
+  then that questions are accepted. If a warm-up fails or exceeds its time limit, questions
+  MUST stay blocked, and the user MUST be told the reason and how to fix it. Tool results
+  are not held.
 
 **Reveal**
 
@@ -386,8 +438,10 @@ reported status, add a keep value and an exemption, and check their effect.
 
 - **FR-024**: The secret and the mapping MUST stay on the user's machine, be readable only by
   that user, and never appear in anything sent to the model, in errors or in logs.
-- **FR-025**: If the secret is missing on first use, the guard MUST create one. If it exists but
-  cannot be read, the guard MUST block questions and protected tool results until it is fixed.
+- **FR-025**: The guard MUST create a new secret when a session starts and delete it, with
+  the session's mapping, when the session ends. If the session secret cannot be created, or
+  is missing or unreadable during the session, the guard MUST block questions and protected
+  tool results. It MUST NOT create a replacement secret mid-session.
 - **FR-026**: The guard MUST prevent the model's own tools from reading the secret or the
   mapping, or running the reveal function. The guard MUST run only when Claude Code's sandbox
   is enabled with reads of the guard's folder denied. Otherwise it MUST block every question
@@ -413,14 +467,18 @@ reported status, add a keep value and an exemption, and check their effect.
   identifies the organisation, its people, its network or its devices. Has a kind (IP,
   network, FQDN, user, name of an object type, free text…).
 - **Stand-in**: the replacement the model sees; same kind and shape, consistent per user.
-- **Pseudonymization secret**: per-user local secret that determines all stand-ins.
-- **Mapping record**: local record of issued stand-ins and their real values, and of known
-  names, used for translation, reveal and question recognition.
+- **Pseudonymization secret**: per-session local secret that determines the session's
+  stand-ins; deleted when the session ends.
+- **Mapping record**: per-session local record of issued stand-ins and their real values, and
+  of names learned in the session, used for translation, reveal and question recognition;
+  deleted when the session ends.
 - **Profile**: per-server description of fields, kinds and safe vocabulary; a default profile
   applies when none exists.
 - **Protected server / exemption**: which MCP servers the guard handles; all, minus explicit
   exemptions.
 - **Keep list / hide list**: operator overrides of the classification.
+- **Fixed entry**: a value that reached the model unchanged in the session (keep list,
+  exempt server). It is never translated, and is deleted with the session.
 
 ## Success Criteria *(mandatory)*
 
@@ -434,12 +492,15 @@ reported status, add a keep value and an exemption, and check their effect.
   text of a name.
 - **SC-003**: 100% of stand-ins taken from a tool result and used as arguments return the same
   records as the real values would, on the same server and across servers.
-- **SC-004**: The same real value gets the same stand-in in 100% of repeated runs, including
-  after restarting Claude Code.
-- **SC-005**: Displayed answers show 100% of known stand-ins as their real values, with no
-  visible delay.
-- **SC-006**: The guard adds less than 1 second to a tool call for a result of typical size
-  (up to 500 records), and less than 1 second to submitting a question.
+- **SC-004**: Within a session, the same real value gets the same stand-in in 100% of
+  repeated uses. After the session ends, 0 files holding its secret or mapping remain, and
+  0 of its stand-ins are revealed or translated by a later session.
+- **SC-005**: Displayed answers show 100% of known stand-ins as their real values. Revealing
+  one rendered row of up to 4 KB takes at most 4 ms with 100,000 known stand-ins.
+- **SC-006**: The guard adds less than 1 second to a tool call whose result has up to 500
+  records of up to 1 KB each (for example `panos-mcp` log entries), measured from the hook's
+  start to its reply, and less than 1 second to submitting a question of up to 2,000
+  characters.
 - **SC-007**: For a test set of questions containing known real values of every category,
   zero real values reach the model provider, and 100% of the stand-ins match those in tool
   results.
@@ -464,11 +525,18 @@ reported status, add a keep value and an exemption, and check their effect.
   Questions with attachments are blocked (FR-032). Not covered: the output of Claude Code's
   built-in tools (shell commands, file reads, web fetches). The documentation states this.
   Protecting built-in tool output may be a later feature.
-- The guard is a separate project. `panos-mcp` is not changed; its profile ships with the
-  guard. `panos-mcp`'s offline demo mode is the reference test environment.
+- The guard is a separate project and requires no change to `panos-mcp`. Its profile for
+  `panos-mcp` ships with the guard and must handle `panos-mcp`'s raw results, because the
+  guard replaces `panos-mcp`'s own runtime pseudonymization. Removing that from `panos-mcp`
+  is work in that project, outside this feature. `panos-mcp` keeps pseudonymizing only in its
+  sample creation, which turns real Panorama data into offline demo samples.
+- `panos-mcp`'s offline demo mode is the reference test environment. Its samples are
+  pseudonymized real data and are assumed to keep the shapes of real values (names, IPs,
+  FQDNs, serials, users). The guard treats every sample value as real.
 - A profile is precise only for servers whose results are structured. Plain-text results get
   shape detection and whole-text hiding, so they are safe but less readable.
 - Pseudonymization hides values, not structure: the model still sees how many items exist and
   how they relate.
-- Stand-ins are consistent per user, not across a team.
+- Stand-ins are consistent within one session only, not across sessions, users or a team.
+  Comparing results across sessions must be done on revealed values, on the user's screen.
 - Values in tool descriptions, schemas and built-in vocabulary are not considered sensitive.
