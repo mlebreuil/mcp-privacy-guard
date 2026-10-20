@@ -62,17 +62,34 @@ Also: `testservers/generic/` (dev-only MCP server for tests), `docs/` (user docu
 
 ## Commands
 
-Once the code exists (tasks T001–T008):
-
 ```sh
 cd engine && uv sync                      # install with dev dependencies
 uv run pytest                             # all tests; -m leak / -m bench for the gates
 uv run ruff check . && uv run mypy src    # lint and type checks
 claude plugin validate plugin             # plugin manifest and module
 claude plugin test plugin                 # plugin tests (*.test.ts)
+CLAUDE_CODE_DTS=<path> scripts/typecheck-plugin.sh   # tsc; prints SKIPPED without the d.ts
 ```
 
 Use a throwaway home for manual runs: `export MCP_PRIVACY_GUARD_HOME=$(mktemp -d)/guard`.
+
+## Working notes
+
+- **Progress**: `grep -n "^- \[ \]" specs/001-mcp-pseudonymization/tasks.md` lists what is left.
+  Phases 1–5 (US1–US3) are done and committed; the guard has not yet been run in a live Claude
+  Code session (quickstart, T102).
+- **Plugin type declarations**: `claude-code.d.ts` is written only by the `plugin-authoring`
+  skill, into a per-process temp folder. Set `CLAUDE_CODE_DTS` to its path for `tsc`.
+- **Plugin tests** use the `claude-code/testing` kit with the fake host in
+  `plugin/hooks/test-support.ts`. Bottom hooks answer `$` calls with `{ value }` or `{ deny }`.
+- **Fixtures**: `engine/tests/tools/record_panos_fixtures.py --panos ~/github/panos-mcp`
+  re-records the `panos-mcp` fixtures (needs that repository and `uv`). The generic test server
+  is `testservers/generic/` (seed values in `seed.json`).
+- **Lint**: `ruff check --fix` can reorder `tests.*` and `mcp_privacy_guard` imports whenever a
+  module is new; run it again once the module exists.
+- **Residual risks to document** (`docs/coverage.md`, T098): names that are plain English words
+  and unquoted in free text, names with spaces in questions, a server that connects after a
+  question, a partial PAN-OS application list.
 
 ## Conventions
 
