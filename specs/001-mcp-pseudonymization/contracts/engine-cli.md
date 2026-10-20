@@ -35,7 +35,7 @@ Replies of `result`, `args`, `prompt`, `observe` and `table` carry
 
 - **stdout**:
   ```json
-  {"engine": "1.0.0", "store": "ready|unreadable|too-permissive|in-git-tree",
+  {"engine": "1.0.0", "home": "/home/u/.config/mcp-privacy-guard", "store": "ready|unreadable|too-permissive|in-git-tree",
    "session": "live|none|unreadable|too-permissive",
    "rev": 1234, "swept": 1,
    "servers": {"panos": {"profile": "panos-mcp", "profile_state": "valid", "exempt": false,

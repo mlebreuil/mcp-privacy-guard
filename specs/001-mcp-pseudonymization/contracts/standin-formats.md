@@ -9,7 +9,9 @@ issued, so it is a breaking change that needs a migration note and a MAJOR engin
 HMAC-SHA256(session secret, domain ‖ 0x1f ‖ value ‖ 0x1f ‖ attempt). `attempt` starts at 0.
 Name and label tokens are `t(6)`, TEXT tokens `t(8)`. On a collision (checked against the
 session's mapping, which holds every stand-in of the session) `attempt` goes up by 1 and the
-token grows by 2 characters. MAC and DIGITS stand-ins are keyed Feistel permutations, so they
+token grows by 2 characters. MAC and DIGITS stand-ins are keyed Feistel permutations (MAC: the 46 bits other than the two
+low bits of the first octet, which are fixed to `10`; DIGITS: every digit string of the same
+length, so a stand-in may start with 0), so they
 never collide.
 
 | Kind | Domain | Real example | Stand-in example | Preserved |
@@ -25,8 +27,8 @@ never collide.
 | EMAIL | `user` + FQDN | `jdoe@corp.example.com` | `u-3hd7qa@d-k7qaw2.d-p4mzc6.com` | domain consistency |
 | USER | `dom`, `user` | `CORP\jdoe` | `dom-x2a7yq\u-3hd7qa` | domain part |
 | GROUP | `dom`, `group` | `CORP\net-admins` | `dom-x2a7yq\g-…` | domain part |
-| MAC | `mac` | `00:1b:17:aa:bb:cc` | `02:5e:91:0c:7d:e3` | form; vendor OUI hidden |
-| DIGITS | `digits` | `007951000123456` | `493810774026518` | length, digits only |
+| MAC | `mac` | `00:1b:17:aa:bb:cc` | `02:5e:91:0c:7d:e3` | form; locally administered unicast; vendor OUI hidden |
+| DIGITS | `digits` | `007951000123456` | `493810774026518` | length, digits only (a leading zero may appear) |
 | NAME and every profile name kind | `name` | `fw-paris-01` (device, rule, object…) | `n-k3f7qa` | one stand-in per real name, whatever its kind |
 | TEXT | `text` | any description | `text-q6w2m4p3` | equality only |
 | MIXED | as parts | `Object web-srv-01 not found` | `Object n-a7zekm not found` | known words |

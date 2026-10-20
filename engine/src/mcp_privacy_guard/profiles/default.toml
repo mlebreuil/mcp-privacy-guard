@@ -1,0 +1,8 @@
+[profile]
+id = "default"
+version = 1
+description = "Applies to every server without a profile: shapes, built-in vocabulary, everything else hidden"
+servers = ["*"]
+
+[text]
+mode = "mixed"
