@@ -146,15 +146,15 @@ conversations and protects the store and Claude Code's settings.
 
 ### Tests for User Story 2 (write first, see them fail)
 
-- [ ] T056 [P] [US2] Write `engine/tests/unit/test_arguments.py`: an issued `n-` stand-in → real value; an IP form (also inside a filter string or a range) → inverted with the session key, issued or not; FQDN, e-mail, user, URL and TEXT stand-ins → real through the session table; mixed strings translate each stand-in and keep the rest; an unknown `n-zzzzzz` stays as typed; argument keys never change; the reply reveals nothing about unknown stand-ins; a stand-in issued in another session is unknown here (Story 2 scenarios 1, 3, 4)
-- [ ] T057 [P] [US2] Write `engine/tests/leak/test_roundtrip.py`: in one session, for each panos fixture and the generic server, every name or IP stand-in in a result translated through `args` equals the original real value, across two server aliases (SC-003, Story 2 scenario 2)
-- [ ] T058 [P] [US2] Extend `plugin/hooks/mcp.test.ts`: arguments are rewritten with the engine's `args` before `next`; an `args` failure denies before the tool runs
+- [x] T056 [P] [US2] Write `engine/tests/unit/test_arguments.py`: an issued `n-` stand-in → real value; an IP form (also inside a filter string or a range) → inverted with the session key, issued or not; FQDN, e-mail, user, URL and TEXT stand-ins → real through the session table; mixed strings translate each stand-in and keep the rest; an unknown `n-zzzzzz` stays as typed; argument keys never change; the reply reveals nothing about unknown stand-ins; a stand-in issued in another session is unknown here (Story 2 scenarios 1, 3, 4)
+- [x] T057 [P] [US2] Write `engine/tests/leak/test_roundtrip.py`: in one session, for each panos fixture and the generic server, every name or IP stand-in in a result translated through `args` equals the original real value, across two server aliases (SC-003, Story 2 scenario 2)
+- [x] T058 [P] [US2] Extend `plugin/hooks/mcp.test.ts`: arguments are rewritten with the engine's `args` before `next`; an `args` failure denies before the tool runs
 
 ### Implementation for User Story 2
 
-- [ ] T059 [US2] Implement `engine/src/mcp_privacy_guard/arguments.py` to pass T056 and T057
-- [ ] T060 [US2] Implement the `args --session <sid> --server <alias> --tool <name> [--since <rev>]` subcommand in `engine/src/mcp_privacy_guard/cli.py`: stdin `{"args"}`, stdout `{"args", "translated", "table"}` (`translated` counts values only)
-- [ ] T061 [US2] Extend `plugin/hooks/mcp.ts` to pass T058: call `args` and `next({ ...e, ...args })` for protected and exempt servers alike, keeping the reserved keys `tool` and `tool_use_id` untouched
+- [x] T059 [US2] Implement `engine/src/mcp_privacy_guard/arguments.py` to pass T056 and T057
+- [x] T060 [US2] Implement the `args --session <sid> --server <alias> --tool <name> [--since <rev>]` subcommand in `engine/src/mcp_privacy_guard/cli.py`: stdin `{"args"}`, stdout `{"args", "translated", "table"}` (`translated` counts values only)
+- [x] T061 [US2] Extend `plugin/hooks/mcp.ts` to pass T058: call `args` and `next({ ...e, ...args })` for protected and exempt servers alike, keeping the reserved keys `tool` and `tool_use_id` untouched
 
 **Checkpoint**: Multi-step investigations work on stand-ins.
 

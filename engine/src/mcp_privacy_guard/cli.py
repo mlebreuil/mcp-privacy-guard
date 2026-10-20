@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any, NoReturn
 
 from mcp_privacy_guard import __version__
+from mcp_privacy_guard.arguments import translate
 from mcp_privacy_guard.config import Config, load_config, resolve_home
 from mcp_privacy_guard.errors import BadInput, GuardError, StoreUnavailable
 from mcp_privacy_guard.profiles import loader
@@ -186,6 +187,23 @@ def cmd_result(args: argparse.Namespace, home: Path) -> dict[str, Any]:
         store.close()
 
 
+def cmd_args(args: argparse.Namespace, home: Path) -> dict[str, Any]:
+    body = read_stdin_json()
+    given = body.get("args")
+    if not isinstance(given, dict):
+        raise BadInput("bad-json", "stdin needs an `args` object")
+    store = Store.open(home, args.session)
+    try:
+        out = translate(given, store=store)
+        return {
+            "args": out.args,
+            "translated": out.translated,
+            "table": table_reply(store, args.since),
+        }
+    finally:
+        store.close()
+
+
 def _not_built(args: argparse.Namespace, home: Path) -> dict[str, Any]:
     raise GuardError("not-implemented", "this subcommand is not built yet")
 
@@ -215,7 +233,11 @@ def build_parser() -> argparse.ArgumentParser:
     result.add_argument("--server", required=True, type=_alias)
     result.add_argument("--tool", required=True, type=_alias)
     result.add_argument("--since", type=int, default=0)
-    for name in ("args", "prompt", "learn", "warmup", "observe"):
+    call = add("args", cmd_args)
+    call.add_argument("--server", required=True, type=_alias)
+    call.add_argument("--tool", required=True, type=_alias)
+    call.add_argument("--since", type=int, default=0)
+    for name in ("prompt", "learn", "warmup", "observe"):
         p = add(name, _not_built)
         p.add_argument("rest", nargs="*")
     add("reveal", _not_built, session=False).add_argument("rest", nargs="*")

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ipaddress as ia
 import re
+from collections.abc import Sequence
 
 from mcp_privacy_guard import suffix
 
@@ -101,7 +102,9 @@ def classify_whole(text: str) -> str | None:
     return None
 
 
-def _candidates(text: str) -> list[tuple[int, int, str]]:
+def _candidates(
+    text: str, extra: Sequence[tuple[re.Pattern[str], str]] = ()
+) -> list[tuple[int, int, str]]:
     found: list[tuple[int, int, str]] = []
     patterns = {
         "URL": [_URL],
@@ -123,13 +126,23 @@ def _candidates(text: str) -> list[tuple[int, int, str]]:
                 if kind == "FQDN" and not _is_fqdn(span):
                     continue
                 found.append((match.start(), match.start() + len(span), kind))
+    for pattern, kind in extra:
+        found.extend((m.start(), m.end(), kind) for m in pattern.finditer(text))
     return found
 
 
-def find_embedded(text: str) -> list[tuple[int, int, str]]:
-    """Non-overlapping (start, end, kind) spans of identifying shapes inside free text."""
+def find_embedded(
+    text: str, extra: Sequence[tuple[re.Pattern[str], str]] = ()
+) -> list[tuple[int, int, str]]:
+    """Non-overlapping (start, end, kind) spans of identifying shapes inside free text.
+
+    `extra` adds caller patterns (for example the stand-in tokens) as further candidates.
+    """
     order = {kind: i for i, kind in enumerate(_KINDS)}
-    ranked = sorted(_candidates(text), key=lambda s: (-(s[1] - s[0]), order[s[2]], s[0]))
+    ranked = sorted(
+        _candidates(text, extra),
+        key=lambda s: (-(s[1] - s[0]), order.get(s[2], len(order)), s[0]),
+    )
     chosen: list[tuple[int, int, str]] = []
     for start, end, kind in ranked:
         if all(end <= s or start >= e for s, e, _ in chosen):

@@ -8,8 +8,13 @@ void register
 const REAL = { content: [{ type: 'text', text: 'REAL 10.1.2.15' }], isError: false }
 const MASKED = { content: [{ type: 'text', text: 'PSEUDONYMIZED' }], isError: false }
 
-const callMcp = ($: Engine, tool = 'mcp__generic__list') =>
+const callMcp = (
+  $: Engine,
+  tool = 'mcp__generic__list',
+  args: Record<string, unknown> = {},
+) =>
   ($.tool as unknown as { call: (i: unknown) => Promise<Record<string, unknown>> }).call({
+    ...args,
     tool,
     tool_use_id: 't1',
   })
@@ -150,4 +155,59 @@ test('prompt.compose tells the model the values are stand-ins', async ($, on) =>
   const ours = out.sections.find(s => s.text.includes('stand-in'))
   expect(ours?.scope).toBe('session')
   expect(ours?.text).toContain('must not')
+})
+
+// -- arguments (task T058) ---------------------------------------------------------------
+
+test('arguments are rewritten with the engine before the tool runs', async ($, on) => {
+  const h = fakeHost(on)
+  await $.session.start(SESSION_START)
+  await callMcp($, 'mcp__generic__list', { query: 'n-abcdef', limit: 5 })
+  const [call] = h.called('args')
+  expect(call?.argv).toEqual(
+    expect.arrayContaining(['--session', SID, '--server', 'generic', '--tool', 'list']),
+  )
+  expect(call?.stdin).toEqual({ args: { query: 'n-abcdef', limit: 5 } }) // no reserved keys
+  const reached = h.toolInputs.at(-1)
+  expect(reached).toMatchObject({
+    tool: 'mcp__generic__list',
+    tool_use_id: 't1',
+    query: 'REAL-NAME',
+    limit: 5,
+  })
+  const order = h.calls.map(c => c.sub)
+  expect(order.indexOf('args')).toBeLessThan(order.indexOf('result'))
+})
+
+for (const [name, reply] of [
+  ['exit 5', { exit: 5 }],
+  ['invalid JSON', { raw: 'nope' }],
+  ['no engine', { reject: true }],
+  ['exit 4 ambiguous', { exit: 4, out: { error: { code: 'ambiguous-address' } } }],
+] as const) {
+  test(`an args failure (${name}) denies before the tool runs`, async ($, on) => {
+    const h = fakeHost(on, { engine: { args: () => reply } })
+    await $.session.start(SESSION_START)
+    const runs = h.toolRuns
+    const out = await callMcp($, 'mcp__generic__list', { query: 'n-abcdef' })
+    expect(out.deny).toContain('privacy guard')
+    expect(h.toolRuns).toBe(runs)
+    expect(h.called('result').length).toBe(0)
+  })
+}
+
+test('an args exit 3 reports the expired session', async ($, on) => {
+  const h = fakeHost(on, { engine: { args: () => ({ exit: 3 }) } })
+  await $.session.start(SESSION_START)
+  const out = await callMcp($, 'mcp__generic__list', { query: 'n-abcdef' })
+  expect(out.deny).toContain('privacy guard')
+  expect(h.status()).toContain('session expired')
+})
+
+test("an exempt server still gets its arguments translated", async ($, on) => {
+  const h = fakeHost(on, { servers: { generic: { exempt: true } } })
+  await $.session.start(SESSION_START)
+  const out = await callMcp($, 'mcp__generic__list', { query: 'n-abcdef' })
+  expect(h.toolInputs.at(-1)).toMatchObject({ query: 'REAL-NAME' })
+  expect(out.result).toEqual(REAL)
 })

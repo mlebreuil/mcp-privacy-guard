@@ -40,6 +40,8 @@ export type Host = {
   mcpResult: () => { result: unknown; isError?: true }
   /** How many times a tool actually ran beneath the plugin. */
   toolRuns: number
+  /** The input each tool call reached the tool with, after the plugin's rewrites. */
+  toolInputs: Record<string, unknown>[]
   /** The plugin's own folder, as the engine reports it when the plugin loads. */
   pluginRoot: string
 }
@@ -63,6 +65,7 @@ export function fakeHost(on: On, init: Partial<Host> = {}): Host {
     called: sub => h.calls.filter(c => c.sub === sub),
     pluginRoot: '',
     toolRuns: 0,
+    toolInputs: [],
     mcpResult: () => ({
       result: { content: [{ type: 'text', text: 'REAL 10.1.2.15' }], isError: false },
     }),
@@ -99,6 +102,13 @@ export function fakeHost(on: On, init: Partial<Host> = {}): Host {
       case 'end':
         if (sid) h.live.delete(sid)
         return { out: { deleted: true, swept: 0 } }
+      case 'args': {
+        const given = (call.stdin as { args: Record<string, unknown> }).args
+        const swapped = Object.fromEntries(
+          Object.entries(given).map(([k, v]) => [k, v === 'n-abcdef' ? 'REAL-NAME' : v]),
+        )
+        return { out: { args: swapped, translated: 1, table: { rev: 0, entries: [] } } }
+      }
       case 'result':
         return {
           out: {
@@ -144,6 +154,7 @@ export function fakeHost(on: On, init: Partial<Host> = {}): Host {
   on('session.end', (_$, e) => ({ sessionId: e.sessionId }))
   on('tool.call', (_$, e) => {
     h.toolRuns += 1
+    h.toolInputs.push({ ...(e as unknown as Record<string, unknown>) })
     if (!String(e.tool).startsWith('mcp__')) return { result: {}, text: 'ran', ref: 1 } as never
     return { ...h.mcpResult(), text: 'ran', ref: 1 } as never
   })

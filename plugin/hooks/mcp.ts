@@ -38,6 +38,32 @@ function textOf(result: unknown): string {
     .join('\n')
 }
 
+const RESERVED = new Set(['tool', 'tool_use_id', 'agentId', 'consent', 'requestMeta'])
+const AMBIGUOUS =
+  'privacy guard: an address in this call is ambiguous; ask the user to state it'
+const NOT_CHECKED = 'privacy guard: the arguments could not be checked, so the tool did not run'
+
+/** The tool's own arguments with every stand-in the engine knows turned back into its real value. */
+async function translateArguments(
+  $: EngineInterface,
+  e: Record<string, unknown>,
+  server: string,
+  name: string,
+): Promise<Record<string, unknown>> {
+  const given = Object.fromEntries(Object.entries(e).filter(([key]) => !RESERVED.has(key)))
+  const reply = await runEngine(
+    $,
+    ['args', '--session', state.sessionId ?? '', '--server', server, '--tool', name,
+     '--since', String(state.reveal.rev)],
+    { args: given },
+  )
+  const out = reply.args
+  if (typeof out !== 'object' || out === null) throw new EngineError(5, 'bad-reply')
+  return Object.fromEntries(
+    Object.entries(out as Record<string, unknown>).filter(([key]) => !RESERVED.has(key)),
+  )
+}
+
 async function withhold($: EngineInterface, error: unknown): Promise<{ deny: string }> {
   if (error instanceof EngineError && error.exitCode === 3) onEngineExit3($)
   return { deny: WITHHELD }
@@ -49,9 +75,18 @@ export function registerMcp(on: On): void {
     const reason = blockedReason()
     if (reason !== null) return { deny: reason }
     const { server, name } = splitTool(String(e.tool), await connectedServers($))
-    if (state.servers[server]?.exempt === true) return next(e)
+    let rewritten: Record<string, unknown>
+    try {
+      rewritten = await translateArguments($, e as unknown as Record<string, unknown>, server, name)
+    } catch (error) {
+      if (error instanceof EngineError && error.exitCode === 3) onEngineExit3($)
+      const ambiguous = error instanceof EngineError && error.code === 'ambiguous-address'
+      return { deny: ambiguous ? AMBIGUOUS : NOT_CHECKED }
+    }
+    const translated = { ...e, ...rewritten } as typeof e
+    if (state.servers[server]?.exempt === true) return next(translated)
 
-    const ran = await next(e)
+    const ran = await next(translated)
     if (ran.deny !== undefined) return ran
     try {
       const reply = await runEngine(
