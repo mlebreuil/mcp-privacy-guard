@@ -2,6 +2,7 @@
 import type { EngineInterface, On } from 'claude-code'
 import { EngineError, runEngine } from './engine'
 import { blockedReason, connectedServers, onEngineExit3 } from './preconditions'
+import { invalidateRows } from './reveal'
 import { currentSession } from './session'
 import { state, WITHHELD } from './state'
 
@@ -74,6 +75,7 @@ export function registerMcp(on: On): void {
     await currentSession($)
     const reason = blockedReason()
     if (reason !== null) return { deny: reason }
+    const before = state.reveal.rev
     const { server, name } = splitTool(String(e.tool), await connectedServers($))
     let rewritten: Record<string, unknown>
     try {
@@ -83,6 +85,7 @@ export function registerMcp(on: On): void {
       const ambiguous = error instanceof EngineError && error.code === 'ambiguous-address'
       return { deny: ambiguous ? AMBIGUOUS : NOT_CHECKED }
     }
+    await invalidateRows($, before)
     const translated = { ...e, ...rewritten } as typeof e
     if (state.servers[server]?.exempt === true) return next(translated)
 
@@ -95,6 +98,7 @@ export function registerMcp(on: On): void {
          '--since', String(state.reveal.rev)],
         { result: ran.result, is_error: ran.isError === true },
       )
+      await invalidateRows($, before)
       if (ran.isError === true) {
         // a hook cannot return an errored result: the pseudonymized text goes out as a denial
         return { deny: textOf(reply.result) || WITHHELD }

@@ -35,6 +35,8 @@ export type Host = {
   calls: Call[]
   statuses: (string | undefined)[]
   toasts: string[]
+  /** How many times a plugin asked the rows to be drawn again. */
+  invalidations: number
   /** The last status line shown, or undefined. */
   status: () => string | undefined
   called: (sub: string) => Call[]
@@ -80,6 +82,7 @@ export function fakeHost(on: On, init: Partial<Host> = {}): Host {
     calls: [],
     statuses: [],
     toasts: [],
+    invalidations: 0,
     status: () => h.statuses.at(-1),
     called: sub => h.calls.filter(c => c.sub === sub),
     pluginRoot: '',
@@ -264,6 +267,11 @@ export function fakeHost(on: On, init: Partial<Host> = {}): Host {
       rateLimits: [],
     } as never,
   }))
+  on('ui.invalidate', () => {
+    h.invalidations += 1
+    return { value: undefined }
+  })
+  on('session.attach', (_$, e) => ({ clientId: e.clientId }))
   on('ui.status', (_$, e) => {
     h.statuses.push(e.text)
     return { value: undefined }

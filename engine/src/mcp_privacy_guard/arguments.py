@@ -16,6 +16,7 @@ from mcp_privacy_guard.classify import shapes
 from mcp_privacy_guard.standins import ip
 from mcp_privacy_guard.store import Store
 
+UNKNOWN_MARK = "\u27e8?\u27e9"
 STANDIN_TOKEN = re.compile(r"\b(?:n|text|h|d|u|g|dom|p)-[a-z2-7]{6,}\b")
 
 
@@ -26,9 +27,10 @@ class ArgsOut:
 
 
 class _Translator:
-    def __init__(self, store: Store) -> None:
+    def __init__(self, store: Store, unknown: list[str] | None = None) -> None:
         self.store = store
         self.count = 0
+        self.unknown = unknown  # when given, unknown name-shaped stand-ins are collected here
 
     def _known(self, text: str) -> str | None:
         row = self.store.lookup_standin(text)
@@ -52,6 +54,11 @@ class _Translator:
             piece = text[start:end]
             real = self._known(piece) or (self._ip(piece) if kind == "IP" else None)
             if real is None:
+                if self.unknown is not None and kind == "NAME":
+                    out.append(text[last:end])
+                    out.append(UNKNOWN_MARK)
+                    last = end
+                    self.unknown.append(piece)
                 continue
             out.append(text[last:start])
             out.append(real)

@@ -237,6 +237,14 @@ class Store:
             return "unreadable"
 
     @staticmethod
+    def live(home: Path) -> list[str]:
+        """Ids of the sessions whose folder exists."""
+        root = _sessions(home)
+        if not root.is_dir():
+            return []
+        return sorted(f.name for f in root.iterdir() if f.is_dir() and SID.fullmatch(f.name))
+
+    @staticmethod
     def exists(home: Path, sid: str) -> bool:
         return (_sessions(home) / check_sid(sid)).is_dir()
 

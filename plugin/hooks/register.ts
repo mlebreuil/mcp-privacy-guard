@@ -3,6 +3,7 @@ import { registerCommand } from './command'
 import { registerGuard } from './guard'
 import { registerMcp } from './mcp'
 import { registerPrompt } from './prompt'
+import { registerReveal } from './reveal'
 import { registerSession } from './session'
 import { state } from './state'
 
@@ -14,4 +15,5 @@ export const register: Register = (on, options) => {
   registerMcp(on)
   registerPrompt(on)
   registerCommand(on)
+  registerReveal(on)
 }

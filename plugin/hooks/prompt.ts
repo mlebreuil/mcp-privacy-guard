@@ -2,6 +2,7 @@
 import type { EngineInterface, On } from 'claude-code'
 import { EngineError, runEngine } from './engine'
 import { blockedReason, onEngineExit3, REASON } from './preconditions'
+import { invalidateRows } from './reveal'
 import { currentSession } from './session'
 import { state } from './state'
 import { gateMessage, refreshServers } from './warmup'
@@ -39,6 +40,7 @@ export function registerPrompt(on: On): void {
       return next(e)
     }
 
+    const before = state.reveal.rev
     let reply
     try {
       reply = await runEngine($, ['prompt', ...sinceArgs()], { text: e.text })
@@ -46,6 +48,7 @@ export function registerPrompt(on: On): void {
       return { drop: dropText($, error) }
     }
     if (typeof reply.text !== 'string') return { drop: NOT_CHECKED }
+    await invalidateRows($, before)
     const entered = await next({ ...e, text: reply.text })
     const replaced = Array.isArray(reply.replacements) ? reply.replacements.length : 0
     if (replaced > 0) await $.ui.toast(`privacy guard: ${replaced} value(s) replaced`)

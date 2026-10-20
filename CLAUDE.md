@@ -76,7 +76,7 @@ Use a throwaway home for manual runs: `export MCP_PRIVACY_GUARD_HOME=$(mktemp -d
 ## Working notes
 
 - **Progress**: `grep -n "^- \[ \]" specs/001-mcp-pseudonymization/tasks.md` lists what is left.
-  Phases 1–5 (US1–US3) are done and committed; the guard has not yet been run in a live Claude
+  Phases 1–5 (US1–US3) are done and committed; Phase 6 (US4 reveal, T074–T079) is done, not yet committed; the guard has not yet been run in a live Claude
   Code session (quickstart, T102).
 - **Plugin type declarations**: `claude-code.d.ts` is written only by the `plugin-authoring`
   skill, into a per-process temp folder. Set `CLAUDE_CODE_DTS` to its path for `tsc`.

@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any, NoReturn
 
 from mcp_privacy_guard import __version__
+from mcp_privacy_guard import reveal as revealing
 from mcp_privacy_guard import warmup as gate
 from mcp_privacy_guard.arguments import translate
 from mcp_privacy_guard.config import Config, load_config, resolve_home
@@ -256,6 +257,39 @@ def cmd_warmup(args: argparse.Namespace, home: Path) -> dict[str, Any]:
         store.close()
 
 
+def cmd_observe(args: argparse.Namespace, home: Path) -> dict[str, Any]:
+    text = read_stdin_json().get("text")
+    if not isinstance(text, str):
+        raise BadInput("bad-json", "stdin needs a `text` string")
+    store = Store.open(home, args.session)
+    try:
+        revealing.observe(text, store=store)
+        return {"table": table_reply(store, args.since)}
+    finally:
+        store.close()
+
+
+def cmd_reveal(args: argparse.Namespace, home: Path) -> dict[str, Any]:
+    raw = sys.stdin.read()
+    text = raw
+    if raw.lstrip().startswith("{"):
+        try:
+            body = json.loads(raw)
+        except ValueError:
+            body = None
+        if isinstance(body, dict) and isinstance(body.get("text"), str):
+            text = body["text"]
+    sid = args.session or revealing.only_live_session(home)
+    store = Store.open(home, sid)
+    try:
+        out = revealing.reveal(text, store=store)
+    finally:
+        store.close()
+    if args.json:
+        return {"text": out.text, "revealed": out.revealed, "unknown": out.unknown}
+    return {"_raw": out.text}
+
+
 def _not_built(args: argparse.Namespace, home: Path) -> dict[str, Any]:
     raise GuardError("not-implemented", "this subcommand is not built yet")
 
@@ -299,10 +333,10 @@ def build_parser() -> argparse.ArgumentParser:
     warm.add_argument("--server", required=True, type=_alias)
     warm.add_argument("--state", required=True, choices=["running", "complete", "failed"])
     warm.add_argument("--reason")
-    for name in ("observe",):
-        p = add(name, _not_built)
-        p.add_argument("rest", nargs="*")
-    add("reveal", _not_built, session=False).add_argument("rest", nargs="*")
+    observe = add("observe", cmd_observe)
+    observe.add_argument("--since", type=int, default=0)
+    shown = add("reveal", cmd_reveal, required=False)
+    shown.add_argument("--json", action="store_true")
     add("check-profile", _not_built, session=False).add_argument("rest", nargs="*")
     return parser
 
@@ -323,7 +357,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     except Exception:  # noqa: BLE001 - nothing from the input may reach the output
         print(json.dumps(_error(GuardError("internal", "internal error"))))
         return 5
-    print(json.dumps(result))
+    if "_raw" in result:  # reveal prints plain text unless --json
+        print(result["_raw"])
+    else:
+        print(json.dumps(result))
     return 0
 
 
