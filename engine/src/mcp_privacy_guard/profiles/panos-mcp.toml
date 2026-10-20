@@ -1,0 +1,242 @@
+[profile]
+id = "panos-mcp"
+version = 1
+description = "Palo Alto Networks Panorama MCP server (raw, unpseudonymized results)"
+servers = ["panos", "panos-*", "panos-mcp", "panorama", "panorama-*"]
+
+[kinds.DEVICE_GROUP]
+cues = ["device group", "device-group", "dg", "group"]
+
+[kinds.TEMPLATE]
+cues = ["template", "stack"]
+
+[kinds.DEVICE_NAME]
+cues = ["firewall", "device", "host", "fw"]
+
+[kinds.RULE_NAME]
+cues = ["rule", "policy"]
+
+[kinds.ADDRESS]
+cues = ["address", "object", "host", "subnet"]
+
+[kinds.ZONE]
+cues = ["zone", "from", "to"]
+
+[kinds.TAG]
+cues = ["tag"]
+
+[vocabulary]
+files = ["panos-mcp/builtin.txt", "panos-mcp/applications.txt"]
+values = ["any", "application-default", "intrazone", "interzone", "universal", "shared"]
+
+# -- names -----------------------------------------------------------------------------
+# Names are hidden by the default rule (a single token that is not vocabulary), so only the
+# fields that carry a rule name or an object name are marked, to teach question recognition.
+
+[[fields]]
+path = "items[].name"
+tools = ["get_security_rules", "get_nat_rules"]
+kind = "RULE_NAME"
+
+[[fields]]
+path = "items.rule_name"
+tools = ["test_security_policy_match"]
+kind = "RULE_NAME"
+
+[[fields]]
+path = "items[].name"
+tools = ["list_device_groups"]
+kind = "DEVICE_GROUP"
+
+[[fields]]
+path = "items[].name"
+tools = ["list_templates"]
+kind = "TEMPLATE"
+
+[[fields]]
+path = "items[].hostname"
+tools = ["list_managed_devices"]
+kind = "DEVICE_NAME"
+
+[[fields]]
+path = "items[].name"
+tools = ["get_objects"]
+kind = "ADDRESS"
+
+# -- free text -------------------------------------------------------------------------
+
+[[fields]]
+path = "**.licenses[].feature"
+kind = "MIXED"
+
+[[fields]]
+path = "**.licenses[].issued"
+kind = "MIXED"
+
+[[fields]]
+path = "**.licenses[].expires"
+kind = "MIXED"
+
+[[fields]]
+path = "**.description"
+kind = "TEXT"
+
+[[fields]]
+path = "**.details[]"
+kind = "MIXED"
+
+[[fields]]
+path = "**.messages[]"
+kind = "MIXED"
+
+[[fields]]
+path = "warnings[]"
+kind = "MIXED"
+
+[[fields]]
+path = "narrowing_hint"
+kind = "MIXED"
+
+[[fields]]
+path = "items.note"
+kind = "MIXED"
+
+[[fields]]
+path = "items.dynamic_filter"
+kind = "TEXT"
+
+[[fields]]
+path = "items.uptime"
+kind = "MIXED"
+
+[[fields]]
+path = "**.url"
+kind = "TEXT"
+
+[[fields]]
+path = "**.path"
+kind = "TEXT"
+
+[[fields]]
+path = "**.command"
+kind = "TEXT"
+
+# -- closed vocabularies (anything else becomes a name) ---------------------------------
+
+[[fields]]
+path = "**.action"
+enum = ["allow", "deny", "drop", "reset-client", "reset-server", "reset-both", "alert", "block-ip", "continue", "override", "block-url"]
+
+[[fields]]
+path = "**.result"
+enum = ["ok", "fail", "pending", "warnings", "unknown", "success", "failure"]
+
+[[fields]]
+path = "**.status"
+enum = ["pending", "active", "finished", "queued", "running", "completed", "failed", "unknown"]
+
+[[fields]]
+path = "**.type"
+enum = ["fqdn", "ip-netmask", "ip-range", "ip-wildcard", "Commit", "CommitAll", "Content", "Downld", "Install", "ManualCommit", "AutoCom", "FinishCommit", "Generate", "Refresh", "Report", "Validate"]
+
+[[fields]]
+path = "**.kind"
+enum = ["address", "address_group", "service", "service_group", "application_group", "tag", "template", "template_stack", "static", "dynamic", "region", "dynamic-ip", "dynamic-ip-and-port", "static-ip", "none"]
+
+[[fields]]
+path = "**.position"
+enum = ["pre", "post", "local"]
+
+[[fields]]
+path = "**.rule_type"
+enum = ["security", "nat"]
+
+[[fields]]
+path = "**.nat_type"
+enum = ["ipv4", "nat64", "nptv6"]
+
+[[fields]]
+path = "**.log_type"
+enum = ["traffic", "threat", "url", "wildfire", "data", "system", "config", "globalprotect", "hipmatch", "userid", "auth"]
+
+[[fields]]
+path = "**.proto"
+enum = ["tcp", "udp", "icmp", "sctp", "gre", "esp", "ah"]
+
+[[fields]]
+path = "**.protocol"
+enum = ["tcp", "udp", "icmp", "sctp", "6", "17", "1"]
+
+[[fields]]
+path = "**.session_end_reason"
+enum = ["aged-out", "policy-deny", "tcp-fin", "tcp-rst-from-client", "tcp-rst-from-server", "threat", "decrypt-error", "unknown", "resources-unavailable", "n-a"]
+
+[[fields]]
+path = "**.ha_state"
+enum = ["standalone", "active", "passive", "active-primary", "active-secondary", "suspended", "non-functional", "tentative", "initial", "disabled"]
+
+[[fields]]
+path = "**.ha"
+enum = ["active", "passive", "active-primary", "active-secondary", "standalone"]
+
+[[fields]]
+path = "**.config_sync"
+enum = ["in_sync", "out_of_sync", "unknown"]
+
+[[fields]]
+path = "**.config_source"
+enum = ["running", "candidate"]
+
+[[fields]]
+path = "**.referrer_kind"
+enum = ["security_rule", "nat_rule", "address_group", "service_group", "application_group"]
+
+[[fields]]
+path = "**.field"
+enum = ["source", "destination", "members", "service", "application", "tag", "static_members", "filter"]
+
+[[fields]]
+path = "**.subtype"
+enum = ["start", "end", "drop", "deny", "allow", "vulnerability", "spyware", "virus", "url", "wildfire", "flood", "scan"]
+
+[[fields]]
+path = "**.direction"
+enum = ["client-to-server", "server-to-client", "inbound", "outbound"]
+
+[[fields]]
+path = "**.model"
+enum = ["Panorama", "M-200", "M-300", "M-500", "M-600", "PA-220", "PA-410", "PA-415", "PA-440", "PA-445", "PA-450", "PA-460", "PA-820", "PA-850", "PA-1410", "PA-1420", "PA-3220", "PA-3250", "PA-3260", "PA-3410", "PA-3420", "PA-3430", "PA-3440", "PA-5220", "PA-5250", "PA-5260", "PA-5410", "PA-5420", "PA-5430", "PA-5440", "PA-5445", "VM-50", "VM-100", "VM-300", "VM-500", "VM-700", "VM-1000-HV"]
+
+# Structure: every field name of a panos-mcp result is schema-defined, so keys are kept
+# (a key of identifying shape is still pseudonymized).
+
+[[fields]]
+path = "**.*"
+keys = "keep"
+
+[text]
+mode = "mixed"
+
+[[warmup]]
+tool = "list_device_groups"
+args = {}
+
+[[warmup]]
+tool = "list_templates"
+args = {}
+
+[[warmup]]
+tool = "list_managed_devices"
+args = {}
+
+[[warmup]]
+tool = "get_security_rules"
+args = { scope = "shared" }
+
+[[warmup]]
+tool = "get_nat_rules"
+args = { scope = "shared" }
+
+[[warmup]]
+tool = "get_objects"
+args = { kind = "address", scope = "shared" }

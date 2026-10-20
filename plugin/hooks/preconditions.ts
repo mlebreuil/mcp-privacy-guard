@@ -65,7 +65,7 @@ export function sandboxProblems(settings: unknown, home: string, userHome: strin
   return problems
 }
 
-async function connectedServers($: EngineInterface): Promise<string[]> {
+export async function connectedServers($: EngineInterface): Promise<string[]> {
   const usage = await $.session.usage({ breakdown: 'summary' })
   const tools = usage.context.breakdown?.mcpTools ?? []
   return [...new Set(tools.map(tool => tool.serverName))]

@@ -1,0 +1,180 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "5 NAT rule(s) match (running config); showing 5.\n{\"items\":[{\"name\":\"SNAT-Outbound\",\"uuid\":null,\"rule_type\":\"nat\",\"scope\":\"shared\",\"position\":\"pre\",\"order\":1,\"disabled\":false,\"description\":\"Hide corp behind the egress interface\",\"tags\":[],\"target\":null,\"from_zones\":[\"trust\"],\"to_zone\":\"untrust\",\"to_interface\":\"ethernet1/1\",\"sources\":[\"corp-net\"],\"destinations\":[\"any\"],\"service\":\"any\",\"nat_type\":\"ipv4\",\"source_translation\":{\"kind\":\"dynamic-ip-and-port\",\"addresses\":[],\"interface\":\"ethernet1/1\",\"bidirectional\":false},\"destination_translation\":null},{\"name\":\"Static-Web-01\",\"uuid\":null,\"rule_type\":\"nat\",\"scope\":\"shared\",\"position\":\"pre\",\"order\":2,\"disabled\":false,\"description\":null,\"tags\":[],\"target\":null,\"from_zones\":[\"dmz\"],\"to_zone\":\"untrust\",\"to_interface\":null,\"sources\":[\"web-srv-01\"],\"destinations\":[\"any\"],\"service\":\"any\",\"nat_type\":\"ipv4\",\"source_translation\":{\"kind\":\"static-ip\",\"addresses\":[\"203.0.113.10\"],\"interface\":null,\"bidirectional\":true},\"destination_translation\":null},{\"name\":\"DNAT-Web-8443\",\"uuid\":null,\"rule_type\":\"nat\",\"scope\":\"Branch-DG\",\"position\":\"pre\",\"order\":3,\"disabled\":false,\"description\":null,\"tags\":[],\"target\":null,\"from_zones\":[\"untrust\"],\"to_zone\":\"untrust\",\"to_interface\":null,\"sources\":[\"any\"],\"destinations\":[\"203.0.113.20\"],\"service\":\"svc-tcp-8443\",\"nat_type\":\"ipv4\",\"source_translation\":null,\"destination_translation\":{\"address\":\"web-srv-01\",\"port\":443,\"dynamic\":false}},{\"name\":\"Branch-SNAT-Pool\",\"uuid\":null,\"rule_type\":\"nat\",\"scope\":\"Branch-DG\",\"position\":\"pre\",\"order\":4,\"disabled\":false,\"description\":null,\"tags\":[],\"target\":null,\"from_zones\":[\"trust\"],\"to_zone\":\"untrust\",\"to_interface\":null,\"sources\":[\"10.30.0.0/16\"],\"destinations\":[\"any\"],\"service\":\"any\",\"nat_type\":\"ipv4\",\"source_translation\":{\"kind\":\"dynamic-ip\",\"addresses\":[\"198.51.100.50-198.51.100.60\"],\"interface\":null,\"bidirectional\":false},\"destination_translation\":null},{\"name\":\"Branch-No-NAT-VPN\",\"uuid\":null,\"rule_type\":\"nat\",\"scope\":\"Branch-DG\",\"position\":\"post\",\"order\":5,\"disabled\":false,\"description\":null,\"tags\":[],\"target\":null,\"from_zones\":[\"trust\"],\"to_zone\":\"untrust\",\"to_interface\":null,\"sources\":[\"10.30.0.0/16\"],\"destinations\":[\"corp-net\"],\"service\":\"any\",\"nat_type\":\"ipv4\",\"source_translation\":null,\"destination_translation\":null}],\"total\":5,\"returned\":5,\"truncated\":false,\"next_offset\":null,\"narrowing_hint\":null,\"config_source\":\"running\",\"retrieved_at\":\"2026-10-20T14:28:30.136265Z\",\"warnings\":[]}"
+    }
+  ],
+  "structuredContent": {
+    "items": [
+      {
+        "name": "SNAT-Outbound",
+        "uuid": null,
+        "rule_type": "nat",
+        "scope": "shared",
+        "position": "pre",
+        "order": 1,
+        "disabled": false,
+        "description": "Hide corp behind the egress interface",
+        "tags": [],
+        "target": null,
+        "from_zones": [
+          "trust"
+        ],
+        "to_zone": "untrust",
+        "to_interface": "ethernet1/1",
+        "sources": [
+          "corp-net"
+        ],
+        "destinations": [
+          "any"
+        ],
+        "service": "any",
+        "nat_type": "ipv4",
+        "source_translation": {
+          "kind": "dynamic-ip-and-port",
+          "addresses": [],
+          "interface": "ethernet1/1",
+          "bidirectional": false
+        },
+        "destination_translation": null
+      },
+      {
+        "name": "Static-Web-01",
+        "uuid": null,
+        "rule_type": "nat",
+        "scope": "shared",
+        "position": "pre",
+        "order": 2,
+        "disabled": false,
+        "description": null,
+        "tags": [],
+        "target": null,
+        "from_zones": [
+          "dmz"
+        ],
+        "to_zone": "untrust",
+        "to_interface": null,
+        "sources": [
+          "web-srv-01"
+        ],
+        "destinations": [
+          "any"
+        ],
+        "service": "any",
+        "nat_type": "ipv4",
+        "source_translation": {
+          "kind": "static-ip",
+          "addresses": [
+            "203.0.113.10"
+          ],
+          "interface": null,
+          "bidirectional": true
+        },
+        "destination_translation": null
+      },
+      {
+        "name": "DNAT-Web-8443",
+        "uuid": null,
+        "rule_type": "nat",
+        "scope": "Branch-DG",
+        "position": "pre",
+        "order": 3,
+        "disabled": false,
+        "description": null,
+        "tags": [],
+        "target": null,
+        "from_zones": [
+          "untrust"
+        ],
+        "to_zone": "untrust",
+        "to_interface": null,
+        "sources": [
+          "any"
+        ],
+        "destinations": [
+          "203.0.113.20"
+        ],
+        "service": "svc-tcp-8443",
+        "nat_type": "ipv4",
+        "source_translation": null,
+        "destination_translation": {
+          "address": "web-srv-01",
+          "port": 443,
+          "dynamic": false
+        }
+      },
+      {
+        "name": "Branch-SNAT-Pool",
+        "uuid": null,
+        "rule_type": "nat",
+        "scope": "Branch-DG",
+        "position": "pre",
+        "order": 4,
+        "disabled": false,
+        "description": null,
+        "tags": [],
+        "target": null,
+        "from_zones": [
+          "trust"
+        ],
+        "to_zone": "untrust",
+        "to_interface": null,
+        "sources": [
+          "10.30.0.0/16"
+        ],
+        "destinations": [
+          "any"
+        ],
+        "service": "any",
+        "nat_type": "ipv4",
+        "source_translation": {
+          "kind": "dynamic-ip",
+          "addresses": [
+            "198.51.100.50-198.51.100.60"
+          ],
+          "interface": null,
+          "bidirectional": false
+        },
+        "destination_translation": null
+      },
+      {
+        "name": "Branch-No-NAT-VPN",
+        "uuid": null,
+        "rule_type": "nat",
+        "scope": "Branch-DG",
+        "position": "post",
+        "order": 5,
+        "disabled": false,
+        "description": null,
+        "tags": [],
+        "target": null,
+        "from_zones": [
+          "trust"
+        ],
+        "to_zone": "untrust",
+        "to_interface": null,
+        "sources": [
+          "10.30.0.0/16"
+        ],
+        "destinations": [
+          "corp-net"
+        ],
+        "service": "any",
+        "nat_type": "ipv4",
+        "source_translation": null,
+        "destination_translation": null
+      }
+    ],
+    "total": 5,
+    "returned": 5,
+    "truncated": false,
+    "next_offset": null,
+    "narrowing_hint": null,
+    "config_source": "running",
+    "retrieved_at": "2026-10-20T14:28:30.136265Z",
+    "warnings": []
+  },
+  "isError": false,
+  "resultType": "complete"
+}

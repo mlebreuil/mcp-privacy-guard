@@ -1,0 +1,60 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "Job 102 (CommitAll): finished, result fail. Failed on: fw-branch-01.\n{\"items\":{\"id\":102,\"type\":\"CommitAll\",\"status\":\"finished\",\"result\":\"fail\",\"progress\":100,\"user\":\"admin\",\"description\":\"Push all\",\"queued_at\":\"2026-10-16T08:10:00\",\"started_at\":\"2026-10-16T08:10:00\",\"finished_at\":\"2026-10-16T08:10:59\",\"details\":[\"Push to 1 of 3 devices failed\"],\"devices\":[{\"serial\":\"900000000003\",\"device_name\":\"fw-branch-01\",\"status\":\"finished\",\"result\":\"fail\",\"messages\":[\"Validation Error: rule 'Allow-Web-Out' references unknown address 'web-old'\"]},{\"serial\":\"900000000001\",\"device_name\":\"fw-hq-01\",\"status\":\"finished\",\"result\":\"ok\",\"messages\":[]},{\"serial\":\"900000000002\",\"device_name\":\"fw-hq-02\",\"status\":\"finished\",\"result\":\"ok\",\"messages\":[]}]},\"total\":3,\"returned\":3,\"truncated\":false,\"next_offset\":null,\"narrowing_hint\":null,\"config_source\":null,\"retrieved_at\":\"2026-10-20T14:28:30.124246Z\",\"warnings\":[]}"
+    }
+  ],
+  "structuredContent": {
+    "items": {
+      "id": 102,
+      "type": "CommitAll",
+      "status": "finished",
+      "result": "fail",
+      "progress": 100,
+      "user": "admin",
+      "description": "Push all",
+      "queued_at": "2026-10-16T08:10:00",
+      "started_at": "2026-10-16T08:10:00",
+      "finished_at": "2026-10-16T08:10:59",
+      "details": [
+        "Push to 1 of 3 devices failed"
+      ],
+      "devices": [
+        {
+          "serial": "900000000003",
+          "device_name": "fw-branch-01",
+          "status": "finished",
+          "result": "fail",
+          "messages": [
+            "Validation Error: rule 'Allow-Web-Out' references unknown address 'web-old'"
+          ]
+        },
+        {
+          "serial": "900000000001",
+          "device_name": "fw-hq-01",
+          "status": "finished",
+          "result": "ok",
+          "messages": []
+        },
+        {
+          "serial": "900000000002",
+          "device_name": "fw-hq-02",
+          "status": "finished",
+          "result": "ok",
+          "messages": []
+        }
+      ]
+    },
+    "total": 3,
+    "returned": 3,
+    "truncated": false,
+    "next_offset": null,
+    "narrowing_hint": null,
+    "config_source": null,
+    "retrieved_at": "2026-10-20T14:28:30.124246Z",
+    "warnings": []
+  },
+  "isError": false,
+  "resultType": "complete"
+}

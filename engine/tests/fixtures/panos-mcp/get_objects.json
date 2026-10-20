@@ -1,0 +1,144 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "11 object(s) match; showing 11.\n{\"items\":[{\"name\":\"web-srv-01\",\"scope\":\"Branch-DG\",\"description\":\"Branch-local override\",\"tags\":[],\"effective\":true,\"kind\":\"address\",\"type\":\"ip-netmask\",\"value\":\"10.30.1.10/32\"},{\"name\":\"branch-printer\",\"scope\":\"Branch-DG\",\"description\":null,\"tags\":[],\"effective\":true,\"kind\":\"address\",\"type\":\"ip-netmask\",\"value\":\"10.30.5.20/32\"},{\"name\":\"app-lb\",\"scope\":\"Global-DG\",\"description\":\"Load balancer VIP\",\"tags\":[\"prod\"],\"effective\":true,\"kind\":\"address\",\"type\":\"ip-netmask\",\"value\":\"10.20.3.10/32\"},{\"name\":\"dns-server-1\",\"scope\":\"shared\",\"description\":\"Primary DNS\",\"tags\":[\"infra\"],\"effective\":true,\"kind\":\"address\",\"type\":\"ip-netmask\",\"value\":\"10.1.1.53/32\"},{\"name\":\"ntp-pool\",\"scope\":\"shared\",\"description\":null,\"tags\":[],\"effective\":true,\"kind\":\"address\",\"type\":\"fqdn\",\"value\":\"ntp.example.com\"},{\"name\":\"partner-range\",\"scope\":\"shared\",\"description\":\"Partner NAT range\",\"tags\":[],\"effective\":true,\"kind\":\"address\",\"type\":\"ip-range\",\"value\":\"198.51.100.10-198.51.100.20\"},{\"name\":\"mgmt-wildcard\",\"scope\":\"shared\",\"description\":null,\"tags\":[],\"effective\":true,\"kind\":\"address\",\"type\":\"ip-wildcard\",\"value\":\"10.0.0.0/0.255.0.255\"},{\"name\":\"web-srv-01\",\"scope\":\"shared\",\"description\":null,\"tags\":[\"web\",\"prod\"],\"effective\":false,\"kind\":\"address\",\"type\":\"ip-netmask\",\"value\":\"10.20.1.10/32\"},{\"name\":\"web-srv-02\",\"scope\":\"shared\",\"description\":null,\"tags\":[\"web\",\"prod\"],\"effective\":true,\"kind\":\"address\",\"type\":\"ip-netmask\",\"value\":\"10.20.1.11/32\"},{\"name\":\"db-srv-01\",\"scope\":\"shared\",\"description\":null,\"tags\":[\"prod\"],\"effective\":true,\"kind\":\"address\",\"type\":\"ip-netmask\",\"value\":\"10.20.2.10/32\"},{\"name\":\"corp-net\",\"scope\":\"shared\",\"description\":null,\"tags\":[],\"effective\":true,\"kind\":\"address\",\"type\":\"ip-netmask\",\"value\":\"10.0.0.0/8\"}],\"total\":11,\"returned\":11,\"truncated\":false,\"next_offset\":null,\"narrowing_hint\":null,\"config_source\":\"running\",\"retrieved_at\":\"2026-10-20T14:28:30.139387Z\",\"warnings\":[]}"
+    }
+  ],
+  "structuredContent": {
+    "items": [
+      {
+        "name": "web-srv-01",
+        "scope": "Branch-DG",
+        "description": "Branch-local override",
+        "tags": [],
+        "effective": true,
+        "kind": "address",
+        "type": "ip-netmask",
+        "value": "10.30.1.10/32"
+      },
+      {
+        "name": "branch-printer",
+        "scope": "Branch-DG",
+        "description": null,
+        "tags": [],
+        "effective": true,
+        "kind": "address",
+        "type": "ip-netmask",
+        "value": "10.30.5.20/32"
+      },
+      {
+        "name": "app-lb",
+        "scope": "Global-DG",
+        "description": "Load balancer VIP",
+        "tags": [
+          "prod"
+        ],
+        "effective": true,
+        "kind": "address",
+        "type": "ip-netmask",
+        "value": "10.20.3.10/32"
+      },
+      {
+        "name": "dns-server-1",
+        "scope": "shared",
+        "description": "Primary DNS",
+        "tags": [
+          "infra"
+        ],
+        "effective": true,
+        "kind": "address",
+        "type": "ip-netmask",
+        "value": "10.1.1.53/32"
+      },
+      {
+        "name": "ntp-pool",
+        "scope": "shared",
+        "description": null,
+        "tags": [],
+        "effective": true,
+        "kind": "address",
+        "type": "fqdn",
+        "value": "ntp.example.com"
+      },
+      {
+        "name": "partner-range",
+        "scope": "shared",
+        "description": "Partner NAT range",
+        "tags": [],
+        "effective": true,
+        "kind": "address",
+        "type": "ip-range",
+        "value": "198.51.100.10-198.51.100.20"
+      },
+      {
+        "name": "mgmt-wildcard",
+        "scope": "shared",
+        "description": null,
+        "tags": [],
+        "effective": true,
+        "kind": "address",
+        "type": "ip-wildcard",
+        "value": "10.0.0.0/0.255.0.255"
+      },
+      {
+        "name": "web-srv-01",
+        "scope": "shared",
+        "description": null,
+        "tags": [
+          "web",
+          "prod"
+        ],
+        "effective": false,
+        "kind": "address",
+        "type": "ip-netmask",
+        "value": "10.20.1.10/32"
+      },
+      {
+        "name": "web-srv-02",
+        "scope": "shared",
+        "description": null,
+        "tags": [
+          "web",
+          "prod"
+        ],
+        "effective": true,
+        "kind": "address",
+        "type": "ip-netmask",
+        "value": "10.20.1.11/32"
+      },
+      {
+        "name": "db-srv-01",
+        "scope": "shared",
+        "description": null,
+        "tags": [
+          "prod"
+        ],
+        "effective": true,
+        "kind": "address",
+        "type": "ip-netmask",
+        "value": "10.20.2.10/32"
+      },
+      {
+        "name": "corp-net",
+        "scope": "shared",
+        "description": null,
+        "tags": [],
+        "effective": true,
+        "kind": "address",
+        "type": "ip-netmask",
+        "value": "10.0.0.0/8"
+      }
+    ],
+    "total": 11,
+    "returned": 11,
+    "truncated": false,
+    "next_offset": null,
+    "narrowing_hint": null,
+    "config_source": "running",
+    "retrieved_at": "2026-10-20T14:28:30.139387Z",
+    "warnings": []
+  },
+  "isError": false,
+  "resultType": "complete"
+}

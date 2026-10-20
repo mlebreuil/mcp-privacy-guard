@@ -2,7 +2,7 @@
 // settings (research R11, FR-026). Best effort: spellings vary, the sandbox is the other layer.
 import type { EngineInterface, On } from 'claude-code'
 import { currentSession } from './session'
-import { state } from './state'
+import { state, WITHHELD } from './state'
 
 const REFUSED = 'privacy guard: refused, this would expose or change the guard'
 const ENGINE = /mcp[-_]privacy[-_]guard/i
@@ -52,5 +52,9 @@ export function registerGuard(on: On): void {
     if (e.tool === 'Bash' && input.dangerouslyDisableSandbox === true) return { deny: REFUSED }
     if (await mentionsGuard($, input)) return { deny: REFUSED }
     return next(e)
-  }).catch(($, e, next) => (next.called ? next(e) : { deny: REFUSED }))
+  }).catch(($, e, next) => {
+    if (next.called) return next(e)
+    // an MCP call that cannot be checked is a withheld result, not a refused request
+    return { deny: String(e.tool).startsWith('mcp__') ? WITHHELD : REFUSED }
+  })
 }

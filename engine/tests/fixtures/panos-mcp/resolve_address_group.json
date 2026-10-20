@@ -1,0 +1,61 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "dyn-web (dynamic) expands to 3 address(es); showing 3.\n{\"items\":{\"group\":\"dyn-web\",\"scope\":\"shared\",\"kind\":\"dynamic\",\"addresses\":[{\"name\":\"10.20.1.10\",\"scope\":\"shared\",\"description\":null,\"tags\":[],\"effective\":null,\"kind\":\"address\",\"type\":\"ip-netmask\",\"value\":\"10.20.1.10\"},{\"name\":\"10.20.1.11\",\"scope\":\"shared\",\"description\":null,\"tags\":[],\"effective\":null,\"kind\":\"address\",\"type\":\"ip-netmask\",\"value\":\"10.20.1.11\"},{\"name\":\"10.20.1.12\",\"scope\":\"shared\",\"description\":null,\"tags\":[],\"effective\":null,\"kind\":\"address\",\"type\":\"ip-netmask\",\"value\":\"10.20.1.12\"}],\"nested_groups\":[],\"dynamic_filter\":\"'web' and 'prod'\",\"resolved_on\":\"900000000001\",\"cycles_detected\":[]},\"total\":3,\"returned\":3,\"truncated\":false,\"next_offset\":null,\"narrowing_hint\":null,\"config_source\":\"running\",\"retrieved_at\":\"2026-10-20T14:28:30.155186Z\",\"warnings\":[]}"
+    }
+  ],
+  "structuredContent": {
+    "items": {
+      "group": "dyn-web",
+      "scope": "shared",
+      "kind": "dynamic",
+      "addresses": [
+        {
+          "name": "10.20.1.10",
+          "scope": "shared",
+          "description": null,
+          "tags": [],
+          "effective": null,
+          "kind": "address",
+          "type": "ip-netmask",
+          "value": "10.20.1.10"
+        },
+        {
+          "name": "10.20.1.11",
+          "scope": "shared",
+          "description": null,
+          "tags": [],
+          "effective": null,
+          "kind": "address",
+          "type": "ip-netmask",
+          "value": "10.20.1.11"
+        },
+        {
+          "name": "10.20.1.12",
+          "scope": "shared",
+          "description": null,
+          "tags": [],
+          "effective": null,
+          "kind": "address",
+          "type": "ip-netmask",
+          "value": "10.20.1.12"
+        }
+      ],
+      "nested_groups": [],
+      "dynamic_filter": "'web' and 'prod'",
+      "resolved_on": "900000000001",
+      "cycles_detected": []
+    },
+    "total": 3,
+    "returned": 3,
+    "truncated": false,
+    "next_offset": null,
+    "narrowing_hint": null,
+    "config_source": "running",
+    "retrieved_at": "2026-10-20T14:28:30.155186Z",
+    "warnings": []
+  },
+  "isError": false,
+  "resultType": "complete"
+}

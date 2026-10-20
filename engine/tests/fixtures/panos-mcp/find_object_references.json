@@ -1,0 +1,52 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "4 reference(s) found; showing 4.\n{\"items\":[{\"referrer_kind\":\"nat_rule\",\"referrer_name\":\"Static-Web-01\",\"scope\":\"shared\",\"position\":\"pre\",\"field\":\"source\"},{\"referrer_kind\":\"address_group\",\"referrer_name\":\"web-servers\",\"scope\":\"shared\",\"position\":null,\"field\":\"members\"},{\"referrer_kind\":\"security_rule\",\"referrer_name\":\"Allow-LB\",\"scope\":\"Global-DG\",\"position\":\"pre\",\"field\":\"destination\"},{\"referrer_kind\":\"security_rule\",\"referrer_name\":\"Allow-Admin-Web\",\"scope\":\"Region-A-DG\",\"position\":\"pre\",\"field\":\"destination\"}],\"total\":4,\"returned\":4,\"truncated\":false,\"next_offset\":null,\"narrowing_hint\":null,\"config_source\":\"running\",\"retrieved_at\":\"2026-10-20T14:28:30.141440Z\",\"warnings\":[\"References to 'web-srv-01' in Branch-DG resolve to the object defined in Branch-DG and are not listed.\"]}"
+    }
+  ],
+  "structuredContent": {
+    "items": [
+      {
+        "referrer_kind": "nat_rule",
+        "referrer_name": "Static-Web-01",
+        "scope": "shared",
+        "position": "pre",
+        "field": "source"
+      },
+      {
+        "referrer_kind": "address_group",
+        "referrer_name": "web-servers",
+        "scope": "shared",
+        "position": null,
+        "field": "members"
+      },
+      {
+        "referrer_kind": "security_rule",
+        "referrer_name": "Allow-LB",
+        "scope": "Global-DG",
+        "position": "pre",
+        "field": "destination"
+      },
+      {
+        "referrer_kind": "security_rule",
+        "referrer_name": "Allow-Admin-Web",
+        "scope": "Region-A-DG",
+        "position": "pre",
+        "field": "destination"
+      }
+    ],
+    "total": 4,
+    "returned": 4,
+    "truncated": false,
+    "next_offset": null,
+    "narrowing_hint": null,
+    "config_source": "running",
+    "retrieved_at": "2026-10-20T14:28:30.141440Z",
+    "warnings": [
+      "References to 'web-srv-01' in Branch-DG resolve to the object defined in Branch-DG and are not listed."
+    ]
+  },
+  "isError": false,
+  "resultType": "complete"
+}

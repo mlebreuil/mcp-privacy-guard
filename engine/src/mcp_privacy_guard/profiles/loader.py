@@ -124,12 +124,27 @@ class Profile:
     def applies_to(self, alias: str) -> bool:
         return any(fnmatch.fnmatchcase(alias, pattern) for pattern in self.servers)
 
-    def match_field(self, tool: str, steps: Sequence[str]) -> FieldRule | None:
-        for rule in self.fields:  # tool-specific rules first, then the general ones
-            if rule.tools is not None and tool in rule.tools and rule.matcher.matches(steps):
-                return rule
+    def match_field(
+        self, tool: str, steps: Sequence[str], want: str | None = None
+    ) -> FieldRule | None:
+        """The first rule matching the path: tool-specific rules first, then the general ones.
+
+        `want` narrows to the rules about values (`kind`/`enum`) or about object keys (`keys`).
+        """
+
+        def relevant(rule: FieldRule) -> bool:
+            if want == "value":
+                return rule.keys is None
+            if want == "keys":
+                return rule.keys is not None
+            return True
+
         for rule in self.fields:
-            if rule.tools is None and rule.matcher.matches(steps):
+            if rule.tools is not None and tool in rule.tools and relevant(rule):
+                if rule.matcher.matches(steps):
+                    return rule
+        for rule in self.fields:
+            if rule.tools is None and relevant(rule) and rule.matcher.matches(steps):
                 return rule
         return None
 

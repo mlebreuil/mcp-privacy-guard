@@ -1,0 +1,22 @@
+{
+  "_comment": "Synthetic 'real' values of every FR-004 category. Nothing here is real data. The leak tests assert that none of these strings reaches the model.",
+  "ips": ["10.1.2.15", "10.20.30.40", "172.20.5.9", "192.168.77.8", "52.10.3.7", "34.201.17.99"],
+  "networks": ["10.1.2.0/24", "10.20.0.0/16", "172.20.5.0/28"],
+  "fqdns": ["app.corp.example.com", "db01.corp.example.com", "vpn.eu.example.org"],
+  "urls": ["https://intranet.corp.example.com:8443/hr/payroll?id=3"],
+  "devices": ["fw-paris-01", "fw-lyon-02", "edge-router-07"],
+  "serials": ["007951000123456", "007951000654321"],
+  "users": ["CORP\\jdoe", "CORP\\asmith"],
+  "groups": ["CORP\\net-admins"],
+  "emails": ["jane.doe@corp.example.com"],
+  "macs": ["00:1b:17:aa:bb:cc", "a4:5e:60:12:34:56"],
+  "objects": ["web-srv-01", "dc-primary-subnet", "allow-hr-payroll"],
+  "descriptions": [
+    "Gateway for the Paris payroll office",
+    "Temporary rule for the Acme migration"
+  ],
+  "log_free_text": [
+    "user jdoe opened the payroll workbook from laptop LAP-PARIS-0042",
+    "badge reader at the Lyon loading dock rejected card 5540-1127"
+  ]
+}

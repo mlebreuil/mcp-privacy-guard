@@ -1,0 +1,16 @@
+[
+  "find_object_references",
+  "get_job",
+  "get_nat_rules",
+  "get_objects",
+  "get_panorama_info",
+  "get_security_rules",
+  "list_device_groups",
+  "list_jobs",
+  "list_managed_devices",
+  "list_templates",
+  "query_logs",
+  "query_logs_with_users",
+  "resolve_address_group",
+  "test_security_policy_match"
+]

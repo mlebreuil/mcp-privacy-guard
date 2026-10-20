@@ -1,0 +1,87 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "7 template(s)/stack(s); showing 7.\n{\"items\":[{\"name\":\"T-Base\",\"kind\":\"template\",\"templates\":[],\"members\":[],\"description\":\"Shared base settings\"},{\"name\":\"T-Region-A\",\"kind\":\"template\",\"templates\":[],\"members\":[],\"description\":\"Region A interfaces\"},{\"name\":\"T-Branch\",\"kind\":\"template\",\"templates\":[],\"members\":[],\"description\":\"Branch interfaces\"},{\"name\":\"T-Region-B\",\"kind\":\"template\",\"templates\":[],\"members\":[],\"description\":\"Region B data center\"},{\"name\":\"Stack-A\",\"kind\":\"template_stack\",\"templates\":[\"T-Region-A\",\"T-Base\"],\"members\":[\"900000000001\",\"900000000002\"],\"description\":null},{\"name\":\"Stack-Branch\",\"kind\":\"template_stack\",\"templates\":[\"T-Branch\",\"T-Base\"],\"members\":[\"900000000003\"],\"description\":null},{\"name\":\"Stack-B\",\"kind\":\"template_stack\",\"templates\":[\"T-Region-B\",\"T-Base\"],\"members\":[\"900000000004\"],\"description\":null}],\"total\":7,\"returned\":7,\"truncated\":false,\"next_offset\":null,\"narrowing_hint\":null,\"config_source\":null,\"retrieved_at\":\"2026-10-20T14:28:30.120841Z\",\"warnings\":[]}"
+    }
+  ],
+  "structuredContent": {
+    "items": [
+      {
+        "name": "T-Base",
+        "kind": "template",
+        "templates": [],
+        "members": [],
+        "description": "Shared base settings"
+      },
+      {
+        "name": "T-Region-A",
+        "kind": "template",
+        "templates": [],
+        "members": [],
+        "description": "Region A interfaces"
+      },
+      {
+        "name": "T-Branch",
+        "kind": "template",
+        "templates": [],
+        "members": [],
+        "description": "Branch interfaces"
+      },
+      {
+        "name": "T-Region-B",
+        "kind": "template",
+        "templates": [],
+        "members": [],
+        "description": "Region B data center"
+      },
+      {
+        "name": "Stack-A",
+        "kind": "template_stack",
+        "templates": [
+          "T-Region-A",
+          "T-Base"
+        ],
+        "members": [
+          "900000000001",
+          "900000000002"
+        ],
+        "description": null
+      },
+      {
+        "name": "Stack-Branch",
+        "kind": "template_stack",
+        "templates": [
+          "T-Branch",
+          "T-Base"
+        ],
+        "members": [
+          "900000000003"
+        ],
+        "description": null
+      },
+      {
+        "name": "Stack-B",
+        "kind": "template_stack",
+        "templates": [
+          "T-Region-B",
+          "T-Base"
+        ],
+        "members": [
+          "900000000004"
+        ],
+        "description": null
+      }
+    ],
+    "total": 7,
+    "returned": 7,
+    "truncated": false,
+    "next_offset": null,
+    "narrowing_hint": null,
+    "config_source": null,
+    "retrieved_at": "2026-10-20T14:28:30.120841Z",
+    "warnings": []
+  },
+  "isError": false,
+  "resultType": "complete"
+}

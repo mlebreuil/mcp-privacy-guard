@@ -1,0 +1,44 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "1 firewall(s) match; showing 1.\n{\"items\":[{\"serial\":\"900000000003\",\"hostname\":\"fw-branch-01\",\"model\":\"PA-440\",\"mgmt_ip\":\"10.30.0.11\",\"sw_version\":\"10.2.10-h3\",\"content_versions\":{\"app_threat\":\"8912-9301\",\"threat\":\"8912-9301\",\"antivirus\":\"5012-5530\",\"wildfire\":\"905123-909001\",\"url_filtering\":\"20261016.20001\"},\"device_group\":\"Branch-DG\",\"template_stack\":\"Stack-Branch\",\"connected\":true,\"config_sync\":\"in_sync\",\"ha\":null,\"vsys\":[\"vsys1\"]}],\"total\":1,\"returned\":1,\"truncated\":false,\"next_offset\":null,\"narrowing_hint\":null,\"config_source\":null,\"retrieved_at\":\"2026-10-20T14:28:30.118287Z\",\"warnings\":[]}"
+    }
+  ],
+  "structuredContent": {
+    "items": [
+      {
+        "serial": "900000000003",
+        "hostname": "fw-branch-01",
+        "model": "PA-440",
+        "mgmt_ip": "10.30.0.11",
+        "sw_version": "10.2.10-h3",
+        "content_versions": {
+          "app_threat": "8912-9301",
+          "threat": "8912-9301",
+          "antivirus": "5012-5530",
+          "wildfire": "905123-909001",
+          "url_filtering": "20261016.20001"
+        },
+        "device_group": "Branch-DG",
+        "template_stack": "Stack-Branch",
+        "connected": true,
+        "config_sync": "in_sync",
+        "ha": null,
+        "vsys": [
+          "vsys1"
+        ]
+      }
+    ],
+    "total": 1,
+    "returned": 1,
+    "truncated": false,
+    "next_offset": null,
+    "narrowing_hint": null,
+    "config_source": null,
+    "retrieved_at": "2026-10-20T14:28:30.118287Z",
+    "warnings": []
+  },
+  "isError": false,
+  "resultType": "complete"
+}

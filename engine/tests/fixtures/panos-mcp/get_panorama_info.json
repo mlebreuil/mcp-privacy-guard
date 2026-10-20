@@ -1,0 +1,61 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "Panorama panorama-lab-01 (Panorama, 11.1.4-h2), HA: standalone. Expired licenses: Premium Support.\n{\"items\":{\"hostname\":\"panorama-lab-01\",\"model\":\"Panorama\",\"serial\":\"900000000100\",\"sw_version\":\"11.1.4-h2\",\"ha_state\":\"standalone\",\"ha_peer_state\":null,\"uptime\":\"42 days, 3:12:09\",\"mgmt_ip\":\"10.0.0.5\",\"licenses\":[{\"feature\":\"Device Management License\",\"description\":\"Manage up to 25 devices\",\"issued\":\"January 01, 2026\",\"expires\":\"December 31, 2027\",\"expired\":false},{\"feature\":\"Premium Support\",\"description\":\"24x7 phone support\",\"issued\":\"October 01, 2025\",\"expires\":\"September 30, 2026\",\"expired\":true},{\"feature\":\"Logging Service\",\"description\":\"Panorama log collection\",\"issued\":\"January 01, 2026\",\"expires\":\"Never\",\"expired\":false}],\"content_versions\":{\"app_threat\":\"8912-9301\",\"threat\":\"8912-9301\",\"antivirus\":\"5012-5530\",\"wildfire\":\"905123-909001\",\"url_filtering\":\"20261016.20001\"},\"tls_verification\":true},\"total\":null,\"returned\":1,\"truncated\":false,\"next_offset\":null,\"narrowing_hint\":null,\"config_source\":null,\"retrieved_at\":\"2026-10-20T14:28:30.113165Z\",\"warnings\":[]}"
+    }
+  ],
+  "structuredContent": {
+    "items": {
+      "hostname": "panorama-lab-01",
+      "model": "Panorama",
+      "serial": "900000000100",
+      "sw_version": "11.1.4-h2",
+      "ha_state": "standalone",
+      "ha_peer_state": null,
+      "uptime": "42 days, 3:12:09",
+      "mgmt_ip": "10.0.0.5",
+      "licenses": [
+        {
+          "feature": "Device Management License",
+          "description": "Manage up to 25 devices",
+          "issued": "January 01, 2026",
+          "expires": "December 31, 2027",
+          "expired": false
+        },
+        {
+          "feature": "Premium Support",
+          "description": "24x7 phone support",
+          "issued": "October 01, 2025",
+          "expires": "September 30, 2026",
+          "expired": true
+        },
+        {
+          "feature": "Logging Service",
+          "description": "Panorama log collection",
+          "issued": "January 01, 2026",
+          "expires": "Never",
+          "expired": false
+        }
+      ],
+      "content_versions": {
+        "app_threat": "8912-9301",
+        "threat": "8912-9301",
+        "antivirus": "5012-5530",
+        "wildfire": "905123-909001",
+        "url_filtering": "20261016.20001"
+      },
+      "tls_verification": true
+    },
+    "total": null,
+    "returned": 1,
+    "truncated": false,
+    "next_offset": null,
+    "narrowing_hint": null,
+    "config_source": null,
+    "retrieved_at": "2026-10-20T14:28:30.113165Z",
+    "warnings": []
+  },
+  "isError": false,
+  "resultType": "complete"
+}

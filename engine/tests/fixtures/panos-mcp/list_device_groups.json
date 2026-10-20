@@ -1,0 +1,62 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "4 device group(s); showing 4.\n{\"items\":[{\"name\":\"Global-DG\",\"parent\":\"shared\",\"children\":[\"Region-A-DG\",\"Region-B-DG\"],\"members\":[],\"description\":null},{\"name\":\"Region-A-DG\",\"parent\":\"Global-DG\",\"children\":[\"Branch-DG\"],\"members\":[\"900000000001\",\"900000000002\"],\"description\":null},{\"name\":\"Branch-DG\",\"parent\":\"Region-A-DG\",\"children\":[],\"members\":[\"900000000003\"],\"description\":null},{\"name\":\"Region-B-DG\",\"parent\":\"Global-DG\",\"children\":[],\"members\":[\"900000000004\"],\"description\":null}],\"total\":4,\"returned\":4,\"truncated\":false,\"next_offset\":null,\"narrowing_hint\":null,\"config_source\":null,\"retrieved_at\":\"2026-10-20T14:28:30.119657Z\",\"warnings\":[]}"
+    }
+  ],
+  "structuredContent": {
+    "items": [
+      {
+        "name": "Global-DG",
+        "parent": "shared",
+        "children": [
+          "Region-A-DG",
+          "Region-B-DG"
+        ],
+        "members": [],
+        "description": null
+      },
+      {
+        "name": "Region-A-DG",
+        "parent": "Global-DG",
+        "children": [
+          "Branch-DG"
+        ],
+        "members": [
+          "900000000001",
+          "900000000002"
+        ],
+        "description": null
+      },
+      {
+        "name": "Branch-DG",
+        "parent": "Region-A-DG",
+        "children": [],
+        "members": [
+          "900000000003"
+        ],
+        "description": null
+      },
+      {
+        "name": "Region-B-DG",
+        "parent": "Global-DG",
+        "children": [],
+        "members": [
+          "900000000004"
+        ],
+        "description": null
+      }
+    ],
+    "total": 4,
+    "returned": 4,
+    "truncated": false,
+    "next_offset": null,
+    "narrowing_hint": null,
+    "config_source": null,
+    "retrieved_at": "2026-10-20T14:28:30.119657Z",
+    "warnings": []
+  },
+  "isError": false,
+  "resultType": "complete"
+}

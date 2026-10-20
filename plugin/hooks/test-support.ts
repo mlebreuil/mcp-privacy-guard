@@ -36,6 +36,10 @@ export type Host = {
   /** The last status line shown, or undefined. */
   status: () => string | undefined
   called: (sub: string) => Call[]
+  /** What the (fake) MCP tool returns; set `isError` for an errored call. */
+  mcpResult: () => { result: unknown; isError?: true }
+  /** How many times a tool actually ran beneath the plugin. */
+  toolRuns: number
   /** The plugin's own folder, as the engine reports it when the plugin loads. */
   pluginRoot: string
 }
@@ -58,6 +62,10 @@ export function fakeHost(on: On, init: Partial<Host> = {}): Host {
     status: () => h.statuses.at(-1),
     called: sub => h.calls.filter(c => c.sub === sub),
     pluginRoot: '',
+    toolRuns: 0,
+    mcpResult: () => ({
+      result: { content: [{ type: 'text', text: 'REAL 10.1.2.15' }], isError: false },
+    }),
     ...init,
   }
 
@@ -91,6 +99,15 @@ export function fakeHost(on: On, init: Partial<Host> = {}): Host {
       case 'end':
         if (sid) h.live.delete(sid)
         return { out: { deleted: true, swept: 0 } }
+      case 'result':
+        return {
+          out: {
+            result: { content: [{ type: 'text', text: 'PSEUDONYMIZED' }], isError: false },
+            withheld: 0,
+            notices: [],
+            table: { rev: 0, entries: [] },
+          },
+        }
       case 'table':
         return { out: { table: { rev: 0, entries: [] } } }
       default:
@@ -125,7 +142,12 @@ export function fakeHost(on: On, init: Partial<Host> = {}): Host {
   })
   on('session.start', (_$, e) => ({ cwd: e.cwd }))
   on('session.end', (_$, e) => ({ sessionId: e.sessionId }))
-  on('tool.call', () => ({ result: {}, text: 'ran', ref: 1 }) as never)
+  on('tool.call', (_$, e) => {
+    h.toolRuns += 1
+    if (!String(e.tool).startsWith('mcp__')) return { result: {}, text: 'ran', ref: 1 } as never
+    return { ...h.mcpResult(), text: 'ran', ref: 1 } as never
+  })
+  on('prompt.compose', () => ({ sections: [] }))
   on('session.id', () => (h.idFails ? { deny: 'session id unavailable' } : { value: h.sessionId }))
   on('env.get', (_$, e) => ({ value: e.name === 'HOME' ? '/home/u' : undefined }))
   on('session.surfaces', () => ({ value: h.surfaces as never }))

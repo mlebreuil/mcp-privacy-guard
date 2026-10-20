@@ -450,6 +450,22 @@ The full table is in [contracts/standin-formats.md](./contracts/standin-formats.
 - **End to end**: [quickstart.md](./quickstart.md) with `panos-mcp` in offline demo mode and the
   generic test server, the plugin loaded through `--plugin-dir`.
 
+- **Recorded 2026-10-20 (task T041)**: `panos-mcp` (commit `8c5aa08`) has no runtime
+  pseudonymization, so its offline demo (`PANOS_MCP_SAMPLES_SCENARIO=baseline`) returns raw
+  output. `engine/tests/tools/record_panos_fixtures.py` calls every tool in-process and writes
+  14 fixtures. The demo samples carry no user names (`src_user` is null), so the script adds one
+  authored fixture, `query_logs_with_users` (the same result with synthetic `CORP\user` values),
+  to cover the FR-004 USER shape. Ground truth for the leak tests (`real_values.json`) excludes
+  PAN-OS defaults the profile keeps (`trust`, `untrust`, `vsys1`, `shared`) and values that stay
+  as they are by design (`10.0.0.0/8`, whose bits are all fixed). A value that is the stand-in
+  of another real value in the session is not a leak (a /24 is permuted within itself).
+- **Leak-test findings fixed on the way (2026-10-20)**: a token joined by `-`, `_` or `/` was
+  treated as plain English when each part was a common word (`Allow-Admin-Web`), and quoted
+  words (`'web'`) were kept in text. Now a hyphenated token is plain only when it is known, and
+  a quoted word is plain only when it is vocabulary. Names that are plain English words and
+  appear unquoted inside free text of a server with no profile still pass (residual risk,
+  documented in `docs/coverage.md`).
+
 ## R13. Session-only stand-ins (owner decision, 2026-10-19)
 
 Input: "Key rotation is not required during a session. Mappings are deleted at the end of the

@@ -1,0 +1,488 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "10 security rule(s) match (running config); showing 10.\n{\"items\":[{\"name\":\"Block-Known-Bad\",\"uuid\":\"72611680-0000-4000-8000-000000000000\",\"rule_type\":\"security\",\"scope\":\"shared\",\"position\":\"pre\",\"order\":1,\"disabled\":false,\"description\":\"Drop traffic to blocked destinations\",\"tags\":[\"infra\"],\"target\":null,\"from_zones\":[\"any\"],\"to_zones\":[\"any\"],\"sources\":[\"any\"],\"destinations\":[\"any\"],\"source_users\":[\"any\"],\"applications\":[\"any\"],\"services\":[\"application-default\"],\"categories\":[\"any\"],\"negate_source\":false,\"negate_destination\":false,\"action\":\"deny\",\"profile_group\":null,\"profiles\":null,\"log_start\":false,\"log_end\":true,\"log_setting\":null,\"schedule\":null},{\"name\":\"Allow-Web-In\",\"uuid\":\"91809547-0000-4000-8000-000000000000\",\"rule_type\":\"security\",\"scope\":\"shared\",\"position\":\"pre\",\"order\":3,\"disabled\":false,\"description\":\"Inbound web to the web farm\",\"tags\":[\"web\"],\"target\":null,\"from_zones\":[\"untrust\"],\"to_zones\":[\"dmz\"],\"sources\":[\"any\"],\"destinations\":[\"web-servers\"],\"source_users\":[\"any\"],\"applications\":[\"web-browsing\",\"ssl\"],\"services\":[\"application-default\"],\"categories\":[\"any\"],\"negate_source\":false,\"negate_destination\":false,\"action\":\"allow\",\"profile_group\":\"strict-profiles\",\"profiles\":null,\"log_start\":false,\"log_end\":true,\"log_setting\":null,\"schedule\":null},{\"name\":\"Allow-LB\",\"uuid\":\"55565589-0000-4000-8000-000000000000\",\"rule_type\":\"security\",\"scope\":\"Global-DG\",\"position\":\"pre\",\"order\":4,\"disabled\":false,\"description\":null,\"tags\":[\"web\",\"prod\"],\"target\":null,\"from_zones\":[\"untrust\"],\"to_zones\":[\"dmz\"],\"sources\":[\"any\"],\"destinations\":[\"web-srv-01\",\"app-lb\"],\"source_users\":[\"any\"],\"applications\":[\"ssl\"],\"services\":[\"application-default\"],\"categories\":[\"any\"],\"negate_source\":false,\"negate_destination\":false,\"action\":\"allow\",\"profile_group\":null,\"profiles\":null,\"log_start\":false,\"log_end\":true,\"log_setting\":null,\"schedule\":null},{\"name\":\"Legacy-FTP\",\"uuid\":\"66863935-0000-4000-8000-000000000000\",\"rule_type\":\"security\",\"scope\":\"Global-DG\",\"position\":\"pre\",\"order\":6,\"disabled\":true,\"description\":\"Disabled legacy rule\",\"tags\":[],\"target\":null,\"from_zones\":[\"trust\"],\"to_zones\":[\"dmz\"],\"sources\":[\"any\"],\"destinations\":[\"any\"],\"source_users\":[\"any\"],\"applications\":[\"ftp\"],\"services\":[\"application-default\"],\"categories\":[\"any\"],\"negate_source\":false,\"negate_destination\":false,\"action\":\"allow\",\"profile_group\":null,\"profiles\":null,\"log_start\":false,\"log_end\":true,\"log_setting\":null,\"schedule\":null},{\"name\":\"Allow-Partners\",\"uuid\":\"71715036-0000-4000-8000-000000000000\",\"rule_type\":\"security\",\"scope\":\"Region-A-DG\",\"position\":\"pre\",\"order\":8,\"disabled\":false,\"description\":null,\"tags\":[],\"target\":null,\"from_zones\":[\"untrust\"],\"to_zones\":[\"dmz\"],\"sources\":[\"partner-range\"],\"destinations\":[\"all-servers\"],\"source_users\":[\"any\"],\"applications\":[\"web-apps\"],\"services\":[\"application-default\"],\"categories\":[\"any\"],\"negate_source\":false,\"negate_destination\":false,\"action\":\"allow\",\"profile_group\":null,\"profiles\":{\"virus\":\"default\",\"spyware\":\"strict\"},\"log_start\":false,\"log_end\":true,\"log_setting\":null,\"schedule\":null},{\"name\":\"Deny-Not-Corp\",\"uuid\":\"04777224-0000-4000-8000-000000000000\",\"rule_type\":\"security\",\"scope\":\"Region-A-DG\",\"position\":\"pre\",\"order\":9,\"disabled\":false,\"description\":\"Deny sources outside corp\",\"tags\":[],\"target\":null,\"from_zones\":[\"trust\"],\"to_zones\":[\"untrust\",\"dmz\"],\"sources\":[\"corp-net\"],\"destinations\":[\"any\"],\"source_users\":[\"any\"],\"applications\":[\"any\"],\"services\":[\"application-default\"],\"categories\":[\"any\"],\"negate_source\":true,\"negate_destination\":false,\"action\":\"reset-client\",\"profile_group\":null,\"profiles\":null,\"log_start\":false,\"log_end\":true,\"log_setting\":null,\"schedule\":null},{\"name\":\"Allow-Branch-Web\",\"uuid\":\"15776918-0000-4000-8000-000000000000\",\"rule_type\":\"security\",\"scope\":\"Branch-DG\",\"position\":\"pre\",\"order\":10,\"disabled\":false,\"description\":null,\"tags\":[\"web\"],\"target\":null,\"from_zones\":[\"trust\"],\"to_zones\":[\"untrust\"],\"sources\":[\"10.30.0.0/16\"],\"destinations\":[\"any\"],\"source_users\":[\"any\"],\"applications\":[\"web-browsing\",\"ssl\"],\"services\":[\"application-default\"],\"categories\":[\"any\"],\"negate_source\":false,\"negate_destination\":false,\"action\":\"allow\",\"profile_group\":null,\"profiles\":null,\"log_start\":false,\"log_end\":true,\"log_setting\":null,\"schedule\":null},{\"name\":\"Branch-Cleanup\",\"uuid\":\"24468862-0000-4000-8000-000000000000\",\"rule_type\":\"security\",\"scope\":\"Branch-DG\",\"position\":\"post\",\"order\":13,\"disabled\":false,\"description\":null,\"tags\":[],\"target\":null,\"from_zones\":[\"any\"],\"to_zones\":[\"any\"],\"sources\":[\"any\"],\"destinations\":[\"any\"],\"source_users\":[\"any\"],\"applications\":[\"any\"],\"services\":[\"application-default\"],\"categories\":[\"any\"],\"negate_source\":false,\"negate_destination\":false,\"action\":\"deny\",\"profile_group\":null,\"profiles\":null,\"log_start\":false,\"log_end\":true,\"log_setting\":null,\"schedule\":null},{\"name\":\"Global-Cleanup\",\"uuid\":\"98146193-0000-4000-8000-000000000000\",\"rule_type\":\"security\",\"scope\":\"Global-DG\",\"position\":\"post\",\"order\":14,\"disabled\":false,\"description\":null,\"tags\":[],\"target\":null,\"from_zones\":[\"any\"],\"to_zones\":[\"any\"],\"sources\":[\"any\"],\"destinations\":[\"any\"],\"source_users\":[\"any\"],\"applications\":[\"any\"],\"services\":[\"application-default\"],\"categories\":[\"any\"],\"negate_source\":false,\"negate_destination\":false,\"action\":\"drop\",\"profile_group\":null,\"profiles\":null,\"log_start\":false,\"log_end\":true,\"log_setting\":null,\"schedule\":null},{\"name\":\"Log-And-Deny-All\",\"uuid\":\"94562601-0000-4000-8000-000000000000\",\"rule_type\":\"security\",\"scope\":\"shared\",\"position\":\"post\",\"order\":15,\"disabled\":false,\"description\":\"Explicit deny with logging\",\"tags\":[],\"target\":null,\"from_zones\":[\"any\"],\"to_zones\":[\"any\"],\"sources\":[\"any\"],\"destinations\":[\"any\"],\"source_users\":[\"any\"],\"applications\":[\"any\"],\"services\":[\"application-default\"],\"categories\":[\"any\"],\"negate_source\":false,\"negate_destination\":false,\"action\":\"deny\",\"profile_group\":null,\"profiles\":null,\"log_start\":false,\"log_end\":true,\"log_setting\":null,\"schedule\":null}],\"total\":10,\"returned\":10,\"truncated\":false,\"next_offset\":null,\"narrowing_hint\":null,\"config_source\":\"running\",\"retrieved_at\":\"2026-10-20T14:28:30.125027Z\",\"warnings\":[]}"
+    }
+  ],
+  "structuredContent": {
+    "items": [
+      {
+        "name": "Block-Known-Bad",
+        "uuid": "72611680-0000-4000-8000-000000000000",
+        "rule_type": "security",
+        "scope": "shared",
+        "position": "pre",
+        "order": 1,
+        "disabled": false,
+        "description": "Drop traffic to blocked destinations",
+        "tags": [
+          "infra"
+        ],
+        "target": null,
+        "from_zones": [
+          "any"
+        ],
+        "to_zones": [
+          "any"
+        ],
+        "sources": [
+          "any"
+        ],
+        "destinations": [
+          "any"
+        ],
+        "source_users": [
+          "any"
+        ],
+        "applications": [
+          "any"
+        ],
+        "services": [
+          "application-default"
+        ],
+        "categories": [
+          "any"
+        ],
+        "negate_source": false,
+        "negate_destination": false,
+        "action": "deny",
+        "profile_group": null,
+        "profiles": null,
+        "log_start": false,
+        "log_end": true,
+        "log_setting": null,
+        "schedule": null
+      },
+      {
+        "name": "Allow-Web-In",
+        "uuid": "91809547-0000-4000-8000-000000000000",
+        "rule_type": "security",
+        "scope": "shared",
+        "position": "pre",
+        "order": 3,
+        "disabled": false,
+        "description": "Inbound web to the web farm",
+        "tags": [
+          "web"
+        ],
+        "target": null,
+        "from_zones": [
+          "untrust"
+        ],
+        "to_zones": [
+          "dmz"
+        ],
+        "sources": [
+          "any"
+        ],
+        "destinations": [
+          "web-servers"
+        ],
+        "source_users": [
+          "any"
+        ],
+        "applications": [
+          "web-browsing",
+          "ssl"
+        ],
+        "services": [
+          "application-default"
+        ],
+        "categories": [
+          "any"
+        ],
+        "negate_source": false,
+        "negate_destination": false,
+        "action": "allow",
+        "profile_group": "strict-profiles",
+        "profiles": null,
+        "log_start": false,
+        "log_end": true,
+        "log_setting": null,
+        "schedule": null
+      },
+      {
+        "name": "Allow-LB",
+        "uuid": "55565589-0000-4000-8000-000000000000",
+        "rule_type": "security",
+        "scope": "Global-DG",
+        "position": "pre",
+        "order": 4,
+        "disabled": false,
+        "description": null,
+        "tags": [
+          "web",
+          "prod"
+        ],
+        "target": null,
+        "from_zones": [
+          "untrust"
+        ],
+        "to_zones": [
+          "dmz"
+        ],
+        "sources": [
+          "any"
+        ],
+        "destinations": [
+          "web-srv-01",
+          "app-lb"
+        ],
+        "source_users": [
+          "any"
+        ],
+        "applications": [
+          "ssl"
+        ],
+        "services": [
+          "application-default"
+        ],
+        "categories": [
+          "any"
+        ],
+        "negate_source": false,
+        "negate_destination": false,
+        "action": "allow",
+        "profile_group": null,
+        "profiles": null,
+        "log_start": false,
+        "log_end": true,
+        "log_setting": null,
+        "schedule": null
+      },
+      {
+        "name": "Legacy-FTP",
+        "uuid": "66863935-0000-4000-8000-000000000000",
+        "rule_type": "security",
+        "scope": "Global-DG",
+        "position": "pre",
+        "order": 6,
+        "disabled": true,
+        "description": "Disabled legacy rule",
+        "tags": [],
+        "target": null,
+        "from_zones": [
+          "trust"
+        ],
+        "to_zones": [
+          "dmz"
+        ],
+        "sources": [
+          "any"
+        ],
+        "destinations": [
+          "any"
+        ],
+        "source_users": [
+          "any"
+        ],
+        "applications": [
+          "ftp"
+        ],
+        "services": [
+          "application-default"
+        ],
+        "categories": [
+          "any"
+        ],
+        "negate_source": false,
+        "negate_destination": false,
+        "action": "allow",
+        "profile_group": null,
+        "profiles": null,
+        "log_start": false,
+        "log_end": true,
+        "log_setting": null,
+        "schedule": null
+      },
+      {
+        "name": "Allow-Partners",
+        "uuid": "71715036-0000-4000-8000-000000000000",
+        "rule_type": "security",
+        "scope": "Region-A-DG",
+        "position": "pre",
+        "order": 8,
+        "disabled": false,
+        "description": null,
+        "tags": [],
+        "target": null,
+        "from_zones": [
+          "untrust"
+        ],
+        "to_zones": [
+          "dmz"
+        ],
+        "sources": [
+          "partner-range"
+        ],
+        "destinations": [
+          "all-servers"
+        ],
+        "source_users": [
+          "any"
+        ],
+        "applications": [
+          "web-apps"
+        ],
+        "services": [
+          "application-default"
+        ],
+        "categories": [
+          "any"
+        ],
+        "negate_source": false,
+        "negate_destination": false,
+        "action": "allow",
+        "profile_group": null,
+        "profiles": {
+          "virus": "default",
+          "spyware": "strict"
+        },
+        "log_start": false,
+        "log_end": true,
+        "log_setting": null,
+        "schedule": null
+      },
+      {
+        "name": "Deny-Not-Corp",
+        "uuid": "04777224-0000-4000-8000-000000000000",
+        "rule_type": "security",
+        "scope": "Region-A-DG",
+        "position": "pre",
+        "order": 9,
+        "disabled": false,
+        "description": "Deny sources outside corp",
+        "tags": [],
+        "target": null,
+        "from_zones": [
+          "trust"
+        ],
+        "to_zones": [
+          "untrust",
+          "dmz"
+        ],
+        "sources": [
+          "corp-net"
+        ],
+        "destinations": [
+          "any"
+        ],
+        "source_users": [
+          "any"
+        ],
+        "applications": [
+          "any"
+        ],
+        "services": [
+          "application-default"
+        ],
+        "categories": [
+          "any"
+        ],
+        "negate_source": true,
+        "negate_destination": false,
+        "action": "reset-client",
+        "profile_group": null,
+        "profiles": null,
+        "log_start": false,
+        "log_end": true,
+        "log_setting": null,
+        "schedule": null
+      },
+      {
+        "name": "Allow-Branch-Web",
+        "uuid": "15776918-0000-4000-8000-000000000000",
+        "rule_type": "security",
+        "scope": "Branch-DG",
+        "position": "pre",
+        "order": 10,
+        "disabled": false,
+        "description": null,
+        "tags": [
+          "web"
+        ],
+        "target": null,
+        "from_zones": [
+          "trust"
+        ],
+        "to_zones": [
+          "untrust"
+        ],
+        "sources": [
+          "10.30.0.0/16"
+        ],
+        "destinations": [
+          "any"
+        ],
+        "source_users": [
+          "any"
+        ],
+        "applications": [
+          "web-browsing",
+          "ssl"
+        ],
+        "services": [
+          "application-default"
+        ],
+        "categories": [
+          "any"
+        ],
+        "negate_source": false,
+        "negate_destination": false,
+        "action": "allow",
+        "profile_group": null,
+        "profiles": null,
+        "log_start": false,
+        "log_end": true,
+        "log_setting": null,
+        "schedule": null
+      },
+      {
+        "name": "Branch-Cleanup",
+        "uuid": "24468862-0000-4000-8000-000000000000",
+        "rule_type": "security",
+        "scope": "Branch-DG",
+        "position": "post",
+        "order": 13,
+        "disabled": false,
+        "description": null,
+        "tags": [],
+        "target": null,
+        "from_zones": [
+          "any"
+        ],
+        "to_zones": [
+          "any"
+        ],
+        "sources": [
+          "any"
+        ],
+        "destinations": [
+          "any"
+        ],
+        "source_users": [
+          "any"
+        ],
+        "applications": [
+          "any"
+        ],
+        "services": [
+          "application-default"
+        ],
+        "categories": [
+          "any"
+        ],
+        "negate_source": false,
+        "negate_destination": false,
+        "action": "deny",
+        "profile_group": null,
+        "profiles": null,
+        "log_start": false,
+        "log_end": true,
+        "log_setting": null,
+        "schedule": null
+      },
+      {
+        "name": "Global-Cleanup",
+        "uuid": "98146193-0000-4000-8000-000000000000",
+        "rule_type": "security",
+        "scope": "Global-DG",
+        "position": "post",
+        "order": 14,
+        "disabled": false,
+        "description": null,
+        "tags": [],
+        "target": null,
+        "from_zones": [
+          "any"
+        ],
+        "to_zones": [
+          "any"
+        ],
+        "sources": [
+          "any"
+        ],
+        "destinations": [
+          "any"
+        ],
+        "source_users": [
+          "any"
+        ],
+        "applications": [
+          "any"
+        ],
+        "services": [
+          "application-default"
+        ],
+        "categories": [
+          "any"
+        ],
+        "negate_source": false,
+        "negate_destination": false,
+        "action": "drop",
+        "profile_group": null,
+        "profiles": null,
+        "log_start": false,
+        "log_end": true,
+        "log_setting": null,
+        "schedule": null
+      },
+      {
+        "name": "Log-And-Deny-All",
+        "uuid": "94562601-0000-4000-8000-000000000000",
+        "rule_type": "security",
+        "scope": "shared",
+        "position": "post",
+        "order": 15,
+        "disabled": false,
+        "description": "Explicit deny with logging",
+        "tags": [],
+        "target": null,
+        "from_zones": [
+          "any"
+        ],
+        "to_zones": [
+          "any"
+        ],
+        "sources": [
+          "any"
+        ],
+        "destinations": [
+          "any"
+        ],
+        "source_users": [
+          "any"
+        ],
+        "applications": [
+          "any"
+        ],
+        "services": [
+          "application-default"
+        ],
+        "categories": [
+          "any"
+        ],
+        "negate_source": false,
+        "negate_destination": false,
+        "action": "deny",
+        "profile_group": null,
+        "profiles": null,
+        "log_start": false,
+        "log_end": true,
+        "log_setting": null,
+        "schedule": null
+      }
+    ],
+    "total": 10,
+    "returned": 10,
+    "truncated": false,
+    "next_offset": null,
+    "narrowing_hint": null,
+    "config_source": "running",
+    "retrieved_at": "2026-10-20T14:28:30.125027Z",
+    "warnings": []
+  },
+  "isError": false,
+  "resultType": "complete"
+}

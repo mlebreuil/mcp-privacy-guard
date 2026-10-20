@@ -18,6 +18,7 @@ from mcp_privacy_guard import __version__
 from mcp_privacy_guard.config import Config, load_config, resolve_home
 from mcp_privacy_guard.errors import BadInput, GuardError, StoreUnavailable
 from mcp_privacy_guard.profiles import loader
+from mcp_privacy_guard.results import pseudonymize_result
 from mcp_privacy_guard.store import Store, check_sid
 
 RECOGNISE = r"\b(n|text|h|d|u|g|dom|p)-[a-z2-7]{6,}\b"
@@ -41,6 +42,12 @@ def _servers(text: str) -> list[str]:
 
 def _session(text: str) -> str:
     return check_sid(text)
+
+
+def _alias(text: str) -> str:
+    if not text or len(text) > 256:
+        raise argparse.ArgumentTypeError("bad name")
+    return text
 
 
 # -- helpers -----------------------------------------------------------------------------
@@ -136,6 +143,49 @@ def cmd_table(args: argparse.Namespace, home: Path) -> dict[str, Any]:
     return {"table": {"rev": rev, "entries": entries}}
 
 
+def read_stdin_json() -> dict[str, Any]:
+    try:
+        data = json.loads(sys.stdin.read())
+    except ValueError as exc:
+        raise BadInput("bad-json", "stdin is not valid JSON") from exc
+    if not isinstance(data, dict):
+        raise BadInput("bad-json", "stdin must be a JSON object")
+    return data
+
+
+def table_reply(store: Store, since: int) -> dict[str, Any]:
+    rev, entries = store.table(since)
+    return {"rev": rev, "entries": entries}
+
+
+def cmd_result(args: argparse.Namespace, home: Path) -> dict[str, Any]:
+    body = read_stdin_json()
+    result = body.get("result")
+    if not isinstance(result, dict):
+        raise BadInput("bad-json", "stdin needs a `result` object")
+    config = load_config(home)
+    store = Store.open(home, args.session)
+    try:
+        profile, _, _ = loader.select_profile(args.server, config.server(args.server).profile)
+        out = pseudonymize_result(
+            result,
+            store=store,
+            profile=profile,
+            config=config,
+            server=args.server,
+            tool=args.tool,
+            is_error=bool(body.get("is_error", False)),
+        )
+        return {
+            "result": out.result,
+            "withheld": out.withheld,
+            "notices": out.notices,
+            "table": table_reply(store, args.since),
+        }
+    finally:
+        store.close()
+
+
 def _not_built(args: argparse.Namespace, home: Path) -> dict[str, Any]:
     raise GuardError("not-implemented", "this subcommand is not built yet")
 
@@ -161,7 +211,11 @@ def build_parser() -> argparse.ArgumentParser:
     add("end", cmd_end)
     table = add("table", cmd_table)
     table.add_argument("--since", type=int, default=0)
-    for name in ("result", "args", "prompt", "learn", "warmup", "observe"):
+    result = add("result", cmd_result)
+    result.add_argument("--server", required=True, type=_alias)
+    result.add_argument("--tool", required=True, type=_alias)
+    result.add_argument("--since", type=int, default=0)
+    for name in ("args", "prompt", "learn", "warmup", "observe"):
         p = add(name, _not_built)
         p.add_argument("rest", nargs="*")
     add("reveal", _not_built, session=False).add_argument("rest", nargs="*")

@@ -39,3 +39,6 @@ export function mergeTable(table: { rev: number; entries: TableEntry[] } | undef
   }
   state.reveal.rev = table.rev
 }
+
+/** What the model reads when a protected result is withheld. */
+export const WITHHELD = 'privacy guard: result withheld by privacy guard'

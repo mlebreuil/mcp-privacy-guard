@@ -1,0 +1,112 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "6 job(s); showing 6, newest first. Failed: 102.\n{\"items\":[{\"id\":106,\"type\":\"CommitAll\",\"status\":\"finished\",\"result\":\"ok\",\"progress\":100,\"user\":\"admin\",\"description\":\"Push Region-A\",\"queued_at\":\"2026-10-16T08:40:01\",\"started_at\":\"2026-10-16T08:40:01\",\"finished_at\":\"2026-10-16T08:40:59\",\"details\":[],\"devices\":[]},{\"id\":105,\"type\":\"Commit\",\"status\":\"pending\",\"result\":\"pending\",\"progress\":0,\"user\":\"admin\",\"description\":\"Queued change\",\"queued_at\":\"2026-10-16T08:35:00\",\"started_at\":\"2026-10-16T08:35:00\",\"finished_at\":null,\"details\":[],\"devices\":[]},{\"id\":104,\"type\":\"CommitAll\",\"status\":\"active\",\"result\":\"pending\",\"progress\":45,\"user\":\"admin\",\"description\":\"Push Region-B\",\"queued_at\":\"2026-10-16T08:30:00\",\"started_at\":\"2026-10-16T08:30:00\",\"finished_at\":null,\"details\":[],\"devices\":[]},{\"id\":103,\"type\":\"Content\",\"status\":\"finished\",\"result\":\"ok\",\"progress\":100,\"user\":\"system\",\"description\":null,\"queued_at\":\"2026-10-16T08:20:00\",\"started_at\":\"2026-10-16T08:20:00\",\"finished_at\":\"2026-10-16T08:20:59\",\"details\":[\"Content 8912-9301 installed\"],\"devices\":[]},{\"id\":102,\"type\":\"CommitAll\",\"status\":\"finished\",\"result\":\"fail\",\"progress\":100,\"user\":\"admin\",\"description\":\"Push all\",\"queued_at\":\"2026-10-16T08:10:00\",\"started_at\":\"2026-10-16T08:10:00\",\"finished_at\":\"2026-10-16T08:10:59\",\"details\":[\"Push to 1 of 3 devices failed\"],\"devices\":[]},{\"id\":101,\"type\":\"Commit\",\"status\":\"finished\",\"result\":\"ok\",\"progress\":100,\"user\":\"admin\",\"description\":\"Daily change\",\"queued_at\":\"2026-10-16T08:00:01\",\"started_at\":\"2026-10-16T08:00:01\",\"finished_at\":\"2026-10-16T08:00:59\",\"details\":[\"Configuration committed successfully\"],\"devices\":[]}],\"total\":6,\"returned\":6,\"truncated\":false,\"next_offset\":null,\"narrowing_hint\":null,\"config_source\":null,\"retrieved_at\":\"2026-10-20T14:28:30.123234Z\",\"warnings\":[]}"
+    }
+  ],
+  "structuredContent": {
+    "items": [
+      {
+        "id": 106,
+        "type": "CommitAll",
+        "status": "finished",
+        "result": "ok",
+        "progress": 100,
+        "user": "admin",
+        "description": "Push Region-A",
+        "queued_at": "2026-10-16T08:40:01",
+        "started_at": "2026-10-16T08:40:01",
+        "finished_at": "2026-10-16T08:40:59",
+        "details": [],
+        "devices": []
+      },
+      {
+        "id": 105,
+        "type": "Commit",
+        "status": "pending",
+        "result": "pending",
+        "progress": 0,
+        "user": "admin",
+        "description": "Queued change",
+        "queued_at": "2026-10-16T08:35:00",
+        "started_at": "2026-10-16T08:35:00",
+        "finished_at": null,
+        "details": [],
+        "devices": []
+      },
+      {
+        "id": 104,
+        "type": "CommitAll",
+        "status": "active",
+        "result": "pending",
+        "progress": 45,
+        "user": "admin",
+        "description": "Push Region-B",
+        "queued_at": "2026-10-16T08:30:00",
+        "started_at": "2026-10-16T08:30:00",
+        "finished_at": null,
+        "details": [],
+        "devices": []
+      },
+      {
+        "id": 103,
+        "type": "Content",
+        "status": "finished",
+        "result": "ok",
+        "progress": 100,
+        "user": "system",
+        "description": null,
+        "queued_at": "2026-10-16T08:20:00",
+        "started_at": "2026-10-16T08:20:00",
+        "finished_at": "2026-10-16T08:20:59",
+        "details": [
+          "Content 8912-9301 installed"
+        ],
+        "devices": []
+      },
+      {
+        "id": 102,
+        "type": "CommitAll",
+        "status": "finished",
+        "result": "fail",
+        "progress": 100,
+        "user": "admin",
+        "description": "Push all",
+        "queued_at": "2026-10-16T08:10:00",
+        "started_at": "2026-10-16T08:10:00",
+        "finished_at": "2026-10-16T08:10:59",
+        "details": [
+          "Push to 1 of 3 devices failed"
+        ],
+        "devices": []
+      },
+      {
+        "id": 101,
+        "type": "Commit",
+        "status": "finished",
+        "result": "ok",
+        "progress": 100,
+        "user": "admin",
+        "description": "Daily change",
+        "queued_at": "2026-10-16T08:00:01",
+        "started_at": "2026-10-16T08:00:01",
+        "finished_at": "2026-10-16T08:00:59",
+        "details": [
+          "Configuration committed successfully"
+        ],
+        "devices": []
+      }
+    ],
+    "total": 6,
+    "returned": 6,
+    "truncated": false,
+    "next_offset": null,
+    "narrowing_hint": null,
+    "config_source": null,
+    "retrieved_at": "2026-10-20T14:28:30.123234Z",
+    "warnings": []
+  },
+  "isError": false,
+  "resultType": "complete"
+}

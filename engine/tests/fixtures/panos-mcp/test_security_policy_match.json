@@ -1,0 +1,40 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "First matching rule: Allow-Admin-Web (allow).\n{\"items\":{\"device_serial\":\"900000000001\",\"vsys\":\"vsys1\",\"query\":{\"device_serial\":\"900000000001\",\"vsys\":\"vsys1\",\"from_zone\":\"trust\",\"to_zone\":\"dmz\",\"source\":\"10.10.1.5\",\"destination\":\"10.20.1.10\",\"protocol\":6,\"destination_port\":443,\"application\":\"ssl\",\"source_user\":null},\"matched\":true,\"rule_name\":\"Allow-Admin-Web\",\"action\":\"allow\",\"note\":\"First matching rule: Allow-Admin-Web (allow).\"},\"total\":null,\"returned\":1,\"truncated\":false,\"next_offset\":null,\"narrowing_hint\":null,\"config_source\":null,\"retrieved_at\":\"2026-10-20T14:28:30.160057Z\",\"warnings\":[]}"
+    }
+  ],
+  "structuredContent": {
+    "items": {
+      "device_serial": "900000000001",
+      "vsys": "vsys1",
+      "query": {
+        "device_serial": "900000000001",
+        "vsys": "vsys1",
+        "from_zone": "trust",
+        "to_zone": "dmz",
+        "source": "10.10.1.5",
+        "destination": "10.20.1.10",
+        "protocol": 6,
+        "destination_port": 443,
+        "application": "ssl",
+        "source_user": null
+      },
+      "matched": true,
+      "rule_name": "Allow-Admin-Web",
+      "action": "allow",
+      "note": "First matching rule: Allow-Admin-Web (allow)."
+    },
+    "total": null,
+    "returned": 1,
+    "truncated": false,
+    "next_offset": null,
+    "narrowing_hint": null,
+    "config_source": null,
+    "retrieved_at": "2026-10-20T14:28:30.160057Z",
+    "warnings": []
+  },
+  "isError": false,
+  "resultType": "complete"
+}
