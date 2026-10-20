@@ -1,0 +1,8 @@
+{
+  "name": "mcp-privacy-guard-plugin",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Dev tooling only: the plugin has no runtime npm dependencies.",
+  "scripts": { "typecheck": "../scripts/typecheck-plugin.sh" },
+  "devDependencies": { "typescript": "^5.6.0" }
+}

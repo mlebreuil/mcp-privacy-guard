@@ -10,7 +10,7 @@ A Claude Code plugin plus a local Python engine. They pseudonymize every MCP too
 every typed question before it reaches the model, translate stand-ins in tool arguments back
 to real values, and reveal real values on the user's terminal. The plugin hooks
 `tool.call`, `prompt.submit`, `prompt.compose` and `ui.render` (verified against Claude Code
-2.1.301, [research R1](./research.md#r1-claude-code-plugin-api-the-main-risk)). It hands every
+2.1.303, [research R1](./research.md#r1-claude-code-plugin-api-the-main-risk)). It hands every
 decision to the stdlib-only engine CLI, which holds the per-session secret and mapping,
 the profiles and the stand-in generators (keyed Crypto-PAn for IPs, one `n-<token>` per real
 name everywhere). Stand-ins are valid only within one session: each session gets its own
@@ -26,7 +26,7 @@ and withholds protected results (clarified 2026-10-18).
 plugin shim (chosen; the host accepts TypeScript or JavaScript, research R1).
 
 **Primary Dependencies**: engine runtime: standard library only. Dev: pytest, hypothesis,
-ruff, mypy, `mcp` (test server only). Plugin: Claude Code plugin API 2.1.301, no runtime npm
+ruff, mypy, `mcp` (test server only). Plugin: Claude Code plugin API 2.1.303, no runtime npm
 dependencies. Dev only: `typescript` for `tsc --noEmit`.
 
 **Storage**: one owner-only folder per live session,

@@ -11,7 +11,7 @@ and record the result here.
 
 ## R1. Claude Code plugin API (the main risk)
 
-Source: the API declarations shipped with Claude Code 2.1.301 (`claude-code.d.ts`, read on
+Source: the API declarations shipped with Claude Code 2.1.301 and re-read on 2.1.303 (`claude-code.d.ts`, read on
 2026-10-18).
 
 | Need | API | Finding |
@@ -89,14 +89,30 @@ can add context and block, but cannot rewrite the question or the display. A pro
 that wraps the others: it needs changes to the MCP configuration (FR-001) and cannot see the
 questions or the display.
 
-**Verify at implementation**:
-- the shape of `result` for an MCP tool from core (expected: `McpToolResult` with `content`,
-  `isError`, `structuredContent`), and the shape a hook must return for `{ result }`;
-- whether a hook can replace an errored MCP result with `{ result }`. Fallback: deliver the
-  pseudonymized error text through `{ deny: text }`;
-- how to map a tool name `mcp__<server>__<tool>` to the server name when names contain `__`
-  (expected: the connected-tool listing `ContextMcpTool { name, server }`);
-- pin the minimum Claude Code version in the manifest.
+**Verified 2026-10-20 (task T009) against the 2.1.303 declarations**:
+- `McpToolResult` is `{ content: McpContentBlock[]; isError: boolean; structuredContent?:
+  unknown }`. `await next(e)` for an MCP tool resolves to `{ ref, result, text }`, or
+  `{ ref, result, text, isError: true }` with `result` of type `unknown`. A hook's own
+  `{ result }` is validated against the tool's output schema **when it has one**, then mapped
+  for the model. An MCP tool without an output schema takes any shape, so the plugin returns
+  the same `McpToolResult` shape it received (`content`, `isError`, `structuredContent`).
+- A hook cannot return `isError` (set by core only). **Decision**: an errored MCP result is
+  never replaced with `{ result }`; its pseudonymized error text goes out as
+  `{ deny: <text> }`, which the model reads as an error. A live check stays with T054.
+- `tool.call` carries only the wire name `mcp__<server>__<tool>`: no server field
+  (`McpServerProvenance` exists on classic hook inputs only). The server name is found with
+  `$.session.usage({ breakdown: 'summary' })`, whose `context.breakdown.mcpTools` lists
+  `ContextMcpTool { name, serverName }` (`serverName` "as /mcp lists it"; the tool-name
+  spelling replaces spaces and dots with `_`, for example `claude_ai_Gmail`). The plugin
+  matches `mcp__<normalised serverName>__` as a prefix and takes the longest match, so a
+  name containing `__` stays unambiguous. `$.mcp.call(server, …)` accepts either spelling.
+  `$.tool.list()` gives only `{ name, description, mcp }`.
+- **Configured servers are not listed before they connect.** `$.mcp` has only `call` and
+  `connect`. `$.settings.read()` returns settings, and `~/.claude.json` and `.mcp.json` are
+  not settings (the global config is "never read"). So at `session.start` the plugin sees
+  the servers already connected. See R9 and R14 for the consequence.
+- **Minimum version**: this check ran on 2.1.303 only. Decided 2026-10-20: the minimum is 2.1.303 until an
+  older build is checked (task T011).
 
 ## R2. Engine placement and process model
 
@@ -286,19 +302,23 @@ The full table is in [contracts/standin-formats.md](./contracts/standin-formats.
     questions accepted" when the last warm-up completes.
   - **Time limits**: 30 s per warm-up call and 120 s per server. Past either, the plugin
     reports `failed` (`timeout`). Other reason codes: `tool-missing` (the server lacks a
-    profile's warm-up tool), `tool-error`, `learn-failed`, `not-connected`. Reasons never hold values.
+    profile's warm-up tool), `tool-error`, `learn-failed`. Reasons never hold values.
   - **Fix for a failed warm-up**: `/clear` or a restart runs it again. If it keeps failing,
     the operator fixes the warm-up list (a user profile may replace the bundled warm-up
     tools, but cannot remove the warm-up) or exempts the server. Questions stay blocked meanwhile, because an incomplete name list cannot
     check them (constitution I: "a question that cannot be checked is not sent").
-  - **Servers still connecting at session start**: `begin --servers` receives every
-    *configured* MCP server, connected or not. The plugin reads them from the host's MCP
-    server list, including pending connections. A server that is still connecting stays
-    `not-started`, so questions wait. Its warm-up starts once it connects. If it fails to
-    connect within 30 s, it becomes `failed` (`not-connected`), which keeps questions
-    blocked and says to fix or exempt the server.
-  - A server added mid-session (`/mcp`) is registered by its first `warmup --state running`.
-    Questions wait again until its warm-up completes.
+  - **Server discovery** (decided 2026-10-20, after R1 "Configured servers are not listed
+    before they connect"): the plugin cannot list configured servers that have not
+    connected. At `session.start` and at the start of **every hook** (`prompt.submit`
+    included) it lists the connected servers (`$.session.usage({ breakdown: 'summary' })`,
+    `mcpTools[].serverName`). A server it has not seen before is passed to `begin --servers`
+    (at session start) or registered by its first `warmup --state running` (later), and its
+    warm-up starts at once. Questions wait until every server seen has completed its warm-up.
+  - **Residual risk**: a server that connects after a question was sent, or that never
+    connects, is not seen, so a name of it typed in that question is sent as typed.
+    Tool results are unaffected (`mcp__*` is matched for every server). Documented in
+    `docs/coverage.md` (T098). `not-connected` no longer applies and is removed from the
+    reason codes.
   - Tool results are not held. They are pseudonymized whatever the state of the name list.
 - **Servers without a warm-up** (default profile, or a profile without `warmup`): their names
   are learned only as their tools return them, so a name typed before that is sent as typed.
@@ -368,9 +388,29 @@ The full table is in [contracts/standin-formats.md](./contracts/standin-formats.
   withheld, with the exact settings to add. The built-in tool guard also denies any `Bash`
   call with `dangerouslyDisableSandbox: true`. Permission `deny` rules for `Read`/`Grep`/
   `Glob` on `<home>` are documented as well, because the sandbox covers shell commands.
-- **Verify at implementation**: the exact settings keys for sandbox enablement, read-deny
-  paths and unsandboxed-command escape in Claude Code 2.1.301, and whether managed (`policy`)
-  settings can enforce them.
+- **Verified 2026-10-20 (task T010)** against the Claude Code sandbox and settings
+  documentation (the declarations type `Settings` as an open record, so the keys come from
+  the documentation, current as of Claude Code 2.1.304):
+  - enablement: `sandbox.enabled` (`true`; off by default);
+  - read deny: `sandbox.filesystem.denyRead` (array of paths; arrays merge across scopes;
+    `sandbox.filesystem.allowRead` can re-allow a narrower path, so the check also refuses an
+    `allowRead` entry that covers `<home>`);
+  - unsandboxed escape: `sandbox.allowUnsandboxedCommands` must be `false` (the model's
+    `dangerouslyDisableSandbox` is then ignored); `sandbox.excludedCommands` runs matching
+    commands outside the sandbox, so the check refuses an entry that names the engine
+    command or `<home>`;
+  - `sandbox.failIfUnavailable` should be `true`: by default Claude Code runs commands
+    unsandboxed when the sandbox cannot start (platform or dependency). The plugin requires
+    it, so a silent unsandboxed fallback cannot occur;
+  - `sandbox.filesystem.disabled` must not be `true` (it skips filesystem isolation);
+  - managed settings sit above every other source and nothing in user, project or
+    `--settings` overrides a managed key. `sandbox.*` can be delivered there (managed file,
+    MDM, server-managed). Pinning the plugin through `enabledPlugins` in managed settings was
+    **not confirmed**; it stays a Verify item for `docs/install.md` (T099).
+  - **The sandbox covers shell commands only.** Claude's file tools, MCP servers and hooks
+    run outside it. So `denyRead` does not stop `Read`, `Grep` or `Glob`: the built-in tool
+    guard (T038) and permission `deny` rules on those tools carry that part, as already
+    planned. FR-026's "reads of the guard's folder denied" is a Bash-level defence only.
 - **Config tampering**: the operator config (exemptions, keep list) lives in `<home>`, so it is
   covered by the same guard.
 
@@ -479,9 +519,12 @@ session." Then: "All stand-ins should be only valid during one session. No persi
 - **Rejected**: letting a resumed conversation continue with old stand-ins marked unknown.
   The model keeps using old IP stand-ins from the history, and those cannot be told apart
   from new ones.
-- **Verify at implementation**: that `$.session.turns()` is above 0 at `session.start` of a
-  resumed session, and whether `--resume` keeps the original session id. The rule holds
-  either way, because the old folder is deleted at the old session's end.
+- **Verify at implementation** (task T011; declarations read 2026-10-20 on 2.1.303, live run
+  still to do): `$.session.turns()` "returns how many prompts the user has sent this session
+  (user turns in the transcript)", so a resumed session reads above 0. `SessionEndInput`
+  carries `resume`, "what `claude --resume` takes to return to it", so the id may differ
+  after a resume. Whether `--resume` keeps the original session id is still open. The rule
+  holds either way, because the old folder is deleted at the old session's end.
 
 ## R15. Values that reach the model unchanged (analysis H1, constitution IV)
 

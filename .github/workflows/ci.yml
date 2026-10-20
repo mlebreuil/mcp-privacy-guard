@@ -1,0 +1,38 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  engine:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.11", "3.14"]
+    defaults:
+      run:
+        working-directory: engine
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv python install ${{ matrix.python }}
+      - run: uv sync --python ${{ matrix.python }}
+      - run: uv run ruff check .
+      - run: uv run mypy src
+      - run: uv run pytest
+
+  plugin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: claude plugin validate and test
+        run: |
+          if ! command -v claude >/dev/null 2>&1; then
+            echo "SKIPPED: claude CLI not available"
+            exit 0
+          fi
+          claude plugin validate plugin
+          claude plugin test plugin
+      - name: tsc
+        run: scripts/typecheck-plugin.sh

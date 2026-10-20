@@ -517,7 +517,7 @@ reported status, add a keep value and an exemption, and check their effect.
   user's control; only the user's machine and the MCP servers' data sources are trusted.
 - Claude Code is the only supported client. Its plugin interface allows rewriting questions
   before sending, rewriting tool-call arguments and results, and changing the display without
-  changing what the model reads (confirmed against Claude Code 2.1.301; see research.md R1).
+  changing what the model reads (confirmed against Claude Code 2.1.303; see research.md R1).
   Display changes work only in the terminal, so only Claude Code in a terminal is supported;
   the VS Code extension and the desktop app are refused (FR-031) until they allow it. Other
   clients are out of scope.

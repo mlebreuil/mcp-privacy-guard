@@ -1,0 +1,13 @@
+{
+  "name": "mcp-privacy-guard",
+  "version": "0.1.0",
+  "description": "Pseudonymizes MCP tool results and questions before they reach the model; reveals real values only in the terminal.",
+  "userConfig": {
+    "enginePath": {
+      "type": "string",
+      "title": "Engine command",
+      "description": "Path or name of the mcp-privacy-guard engine command.",
+      "default": "mcp-privacy-guard"
+    }
+  }
+}

@@ -1,0 +1,13 @@
+.DS_Store
+.venv/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+dist/
+node_modules/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+secret.key
+plugin/.claude-plugin/types/

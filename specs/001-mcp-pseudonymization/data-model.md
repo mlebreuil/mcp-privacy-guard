@@ -80,7 +80,7 @@ Unique `(real, kind)`. Filled by `result` and `learn` during the session.
 
 `schema_version`, `session_id`, `created_at`, and per server: `warmup_state`
 (`not-started` → `running` → `complete` or `failed`), `warmup_reason` (`timeout`,
-`tool-missing`, `tool-error`, `learn-failed`, `not-connected`). Servers are recorded by `begin` (those whose
+`tool-missing`, `tool-error`, `learn-failed`). Servers are recorded by `begin` (those whose
 profile declares a warm-up) or by their first `warmup --state running`. While any is
 `not-started` or `running`, `prompt` refuses with `warmup-pending`. Once one is `failed`, it
 refuses with `warmup-failed` (FR-034).

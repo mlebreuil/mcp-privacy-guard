@@ -1,0 +1,19 @@
+mcp-privacy-guard bundles the following third-party data.
+
+Public Suffix List
+  File: engine/src/mcp_privacy_guard/data/public_suffix_list.dat
+  Source: https://publicsuffix.org/list/public_suffix_list.dat
+  Licence: Mozilla Public License 2.0 (https://mozilla.org/MPL/2.0/)
+  Refreshed with scripts/update-public-suffix.sh.
+
+Common words
+  File: engine/src/mcp_privacy_guard/data/common_words.txt
+  Source: the first 5,000 entries of google-10000-english-no-swears.txt
+  (https://github.com/first20hours/google-10000-english), derived from the Google Web
+  Trillion Word Corpus (Brants and Franz, distributed by the LDC; subsets by Peter Norvig,
+  MIT licence), filtered to entries that are lower-case words of the system dictionary
+  (so no proper nouns) with at least three letters, plus a few networking terms.
+  Licence note: the upstream states "educational and personal/research use ... is permitted
+  under the LDC license, Norvig's MIT license for his contributions, and US fair use
+  doctrine". The list is word frequency data, not text. Confirm that this is acceptable
+  before publishing the repository.

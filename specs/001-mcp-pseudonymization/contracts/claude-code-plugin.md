@@ -13,7 +13,7 @@ plan, Complexity Tracking).
 `claude --plugin-dir plugin` for development.
 **User option**: `enginePath` (default `mcp-privacy-guard`). There is no option that disables
 anything.
-**Minimum Claude Code version**: 2.1.301, declared in the manifest and checked at
+**Minimum Claude Code version**: 2.1.303, declared in the manifest and checked at
 `session.start`. An older build blocks every question and withholds every protected result.
 
 ## Preconditions (block reason)
@@ -22,16 +22,18 @@ Checked at `session.start` and again at the start of each guard hook. If any fai
 plugin sets a block reason. Every question is dropped and every protected result is withheld
 with that reason and its fix, and the status line shows it.
 
-1. Host version ≥ 2.1.301.
+1. Host version ≥ 2.1.303.
 2. `$.session.surfaces()` lists `terminal` (FR-031). The VS Code extension, the desktop app and
    `-p` runs are refused: "privacy guard: use Claude Code in a terminal".
-3. `$.settings.read()` shows the sandbox enabled, `<home>` in its read-deny list, and
-   unsandboxed commands not allowed (FR-026). The message gives the settings to add.
+3. `$.settings.read()` (merged over every source) shows `sandbox.enabled` `true`,
+   `<home>` in `sandbox.filesystem.denyRead`, `sandbox.allowUnsandboxedCommands` `false`,
+   `sandbox.failIfUnavailable` `true`, and `sandbox.filesystem.disabled` not `true`
+   (FR-026, research R11). The message gives the settings to add.
 4. `status --session <id>` succeeds and reports `store: ready`.
 5. The session is live (research R13, R14):
    - `session: "live"` → continue (also after a plugin reload within the session);
    - `session: "none"` and `$.session.turns()` = 0 → run `begin --session <id> --servers
-     <configured aliases>` (connected or still connecting, R9);
+     <connected aliases>` (the servers seen so far, R9);
    - `session: "none"` and `turns()` > 0, or `turns()` fails → resumed conversation
      (FR-033): "privacy guard: this conversation is from an ended session; start a new one
      (/clear)";
@@ -58,7 +60,7 @@ Every hook marked † is registered with
 
 | Event | Matcher | Behaviour | Spec |
 |---|---|---|---|
-| `session.start` | — | Check the host version. Run `status --servers <configured aliases> --session <id>`, then precondition 5 (`begin` for a new session), and keep the server map and recognition pattern. Run `table --session <id> --since 0` (empty for a new session; the full table after a plugin reload). Set the status line to `privacy-guard: active · n protected · m exempt` (or the blocking reason), show the per-server toast (each server with its profile or `exempt`, invalid profiles flagged), and register the `/privacy-guard` command (research R16). For each server that `begin` (or `status`) lists with `warmup_state` not `complete`, run its warm-up in the background: `warmup --state running`, then for each warm-up tool `$.mcp.call` (30 s) → `learn`, then `warmup --state complete`, or `failed` with a reason code (`timeout` past 30 s per call or 120 s per server, `tool-missing`, `tool-error`, `learn-failed`, or `not-connected` when a configured server has not connected within 30 s). Status line `privacy-guard: loading names (k/n)` meanwhile. When `warmup` reports no pending server: toast "privacy guard: names loaded, questions accepted" and the normal status line. On `failed`: status line and toast with the reason and the fix (`/clear` to retry; fix the profile or exempt the server). Warm-up runs in every new session (R13). A server first seen mid-session gets the same treatment. | FR-029, FR-034, R9 |
+| `session.start` | — | Check the host version. Run `status --servers <connected aliases> --session <id>`, then precondition 5 (`begin` for a new session), and keep the server map and recognition pattern. Run `table --session <id> --since 0` (empty for a new session; the full table after a plugin reload). Set the status line to `privacy-guard: active · n protected · m exempt` (or the blocking reason), show the per-server toast (each server with its profile or `exempt`, invalid profiles flagged), and register the `/privacy-guard` command (research R16). For each server that `begin` (or `status`) lists with `warmup_state` not `complete`, run its warm-up in the background: `warmup --state running`, then for each warm-up tool `$.mcp.call` (30 s) → `learn`, then `warmup --state complete`, or `failed` with a reason code (`timeout` past 30 s per call or 120 s per server, `tool-missing`, `tool-error`, `learn-failed`). Status line `privacy-guard: loading names (k/n)` meanwhile. When `warmup` reports no pending server: toast "privacy guard: names loaded, questions accepted" and the normal status line. On `failed`: status line and toast with the reason and the fix (`/clear` to retry; fix the profile or exempt the server). Warm-up runs in every new session (R13). A server first seen mid-session (the plugin lists the connected servers at the start of every hook) gets the same treatment, and questions wait for it (R9). | FR-029, FR-034, R9 |
 | `session.end` | — | Run `end --session <e.sessionId>` within `next.budget`, then `next(e)`. Empty the reveal table. Failure or timeout: ignored here; the folder is swept later (R13). Never blocks the exit. | FR-008, FR-025, R13 |
 | `command.run` | `privacy-guard` | Return `{ text }`: guard state or block reason, and for each server its profile, profile state, exemption and warm-up state, from the last `status`. No store value. | FR-029, R16 |
 | `command.run` † | every command except `privacy-guard` | Block reason set: refuse the run. Otherwise run `prompt` on `e.args` and `next({ ...e, args })`; failure, timeout or `identifying` that cannot be rewritten: refuse. Merge the table. `.catch`: refuse. To be confirmed by task T103 (R1, "Slash commands and skills"). | FR-017, FR-019, R1 |

@@ -117,7 +117,7 @@ session's dictionary and stand-ins in its mapping. Progress is recorded separate
 
 Records a server's warm-up progress for the session (research R9). `running` also registers
 a server that was not listed at `begin` (connected mid-session). `--reason` is required with
-`failed`: `timeout`, `tool-missing`, `tool-error`, `learn-failed` or `not-connected`. **stdin**: none.
+`failed`: `timeout`, `tool-missing`, `tool-error`, or `learn-failed`. **stdin**: none.
 **stdout**: `{"pending": ["…"], "failed": ["…"]}`, the servers still holding questions back.
 
 ## `observe --session <id> [--since <rev>]`

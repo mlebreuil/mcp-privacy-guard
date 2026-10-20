@@ -7,7 +7,7 @@ Checks that the feature works in a real Claude Code session. Contracts:
 ## Prerequisites
 
 - Python ≥ 3.11 and `uv`.
-- Claude Code ≥ 2.1.301, **in a terminal**. The guard refuses the VS Code extension and the
+- Claude Code ≥ 2.1.303, **in a terminal**. The guard refuses the VS Code extension and the
   desktop app (FR-031).
 - Claude Code's sandbox enabled, with `$MCP_PRIVACY_GUARD_HOME` in its read-deny list and
   unsandboxed commands not allowed (FR-026; exact settings in `docs/install.md`).
