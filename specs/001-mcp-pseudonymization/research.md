@@ -26,6 +26,34 @@ Source: the API declarations shipped with Claude Code 2.1.301 (`claude-code.d.ts
 | Learn names in advance | `$.mcp.call(server, tool, args)` | A plugin can call a connected server's tool with the engine's own connection. The result goes to the plugin, not to the model. |
 | Notices | `$.ui.toast`, `$.ui.status` | Short user-visible notices. |
 
+**Plugin language (re-checked 2026-10-20 against build 2.1.303)**:
+
+- A hooks module is a TypeScript **or JavaScript** ES module (`.ts`, `.tsx`, `.js`, `.mjs`,
+  …). The host does not require TypeScript. **Decision**: TypeScript, to type-check the plugin
+  against `claude-code.d.ts` (`tsc -p`) and catch hook-shape errors before they fail open.
+- **Classic shell (command) hooks were considered and rejected.** `PostToolUse` can replace
+  MCP output (`updatedMCPToolOutput`), but `UserPromptSubmit` only adds context, sets a
+  title or suppresses the prompt: it cannot rewrite the question. No classic hook translates
+  tool arguments, and none can gate the reveal on `e.surface` or refuse in place of a
+  failed hook (the `.catch` below). `MessageDisplay` (`displayContent`) rewrites the
+  display of assistant text only: not the user's row, tool use or tool results, and it
+  carries no surface. Only a hooks module covers every guard point.
+
+**Slash commands and skills (found 2026-10-20 in the 2.1.303 declarations; Verify at implementation)**:
+
+- `prompt.submit` is not raised for a command that runs as a fork. For a built-in command that
+  asks the model, `{ drop }` stops only the turn, which has run, and a rewrite of `text` is not
+  applied (`e.command` set). The declarations say to mask arguments at `command.run`
+  (`next({ ...e, args })`) and a skill's body at `skill.prompt` (`text`).
+- **Verify** (task T103): (1) `command.run` fires for forks and for built-in commands that ask
+  the model; (2) `prompt.submit` sees the `args` that `command.run` left; (3) `skill.prompt`
+  fires for `/name`, the Skill tool and preloaded subagent skills, and `text` holds the user's
+  arguments; (4) a throw or refusal at `command.run` or `skill.prompt` is possible and fails
+  closed.
+- **Decision (pending the verify)**: pseudonymize `args` at `command.run` with the engine's
+  `prompt`, and block the command when it cannot. Any path not covered is listed as a residual
+  risk in `docs/coverage.md`.
+
 **Fail-open defaults** (all confirmed):
 
 - A hook that throws, returns a wrong shape or runs past its budget (10 s of its own time) is

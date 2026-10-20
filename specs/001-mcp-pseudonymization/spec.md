@@ -6,8 +6,8 @@
 
 **Status**: Draft
 
-**Input**: User description: "the current implementation of the mcp server will hand over data, either firewall configuration and logs, to the model. The company polics prohibit this. The goal of this new feature would be to anonymise the data handed hover to the model still keeping these consistent (the same data anonimize the same way) and being able to recontruct the real data on the user's machine before display."
-Refined: "Could the anonymization plugin be the same whatever the MCP server used behind? That is, generalise the plugin and leave the current MCP configuration untouched." → separate repository, no pseudonymization inside the MCP servers.
+**Input**: User description: "the current implementation of the mcp server will hand over data, either firewall configuration and logs, to the model. The company policies prohibit this. The goal of this new feature would be to anonymise the data handed hover to the model still keeping these consistent (the same data anonimize the same way) and being able to recontruct the real data on the user's machine before display."
+The anonymization plugin should be the same whatever the MCP server used behind. That is, the plugin should be generalised.
 
 ## Context
 
@@ -314,7 +314,9 @@ reported status, add a keep value and an exemption, and check their effect.
   sent as typed. This residual risk is documented.
 - **Typos and partial names** in a question cannot be recognised and are sent as typed; the
   user sees what was replaced and can correct it.
-- **Slash commands** carrying identifying values cannot be rewritten; they are blocked with a
+- **Slash commands** carrying identifying values: the arguments are pseudonymized before the
+  command runs, like a question. A command whose arguments cannot be checked, or whose path
+  the guard cannot cover (research R1, "Slash commands and skills"), is blocked with a
   request to ask as a plain question.
 - **Attachments** (images, files, documents) on a question cannot be checked; the question is
   blocked with a request to paste the text instead.

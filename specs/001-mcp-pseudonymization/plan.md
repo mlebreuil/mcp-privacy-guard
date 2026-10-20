@@ -23,11 +23,11 @@ and withholds protected results (clarified 2026-10-18).
 ## Technical Context
 
 **Language/Version**: Python ≥ 3.11 (engine; developed on 3.14). TypeScript for the Claude Code
-plugin shim (the host's required language).
+plugin shim (chosen; the host accepts TypeScript or JavaScript, research R1).
 
 **Primary Dependencies**: engine runtime: standard library only. Dev: pytest, hypothesis,
-ruff, mypy, `mcp` (test server only). Plugin: Claude Code plugin API 2.1.301, no npm
-dependencies.
+ruff, mypy, `mcp` (test server only). Plugin: Claude Code plugin API 2.1.301, no runtime npm
+dependencies. Dev only: `typescript` for `tsc --noEmit`.
 
 **Storage**: one owner-only folder per live session,
 `~/.config/mcp-privacy-guard/store/sessions/<session-id>/`, holding a 32-byte `secret.key`
@@ -137,6 +137,7 @@ plugin/
 ├── hooks/guard.ts                   # built-in tool guard
 ├── hooks/mcp.ts                     # MCP tool.call: args, result, exempt
 ├── hooks/prompt.ts                  # prompt.submit
+├── hooks/command.ts                 # command.run, skill.prompt (slash-command args, skill text)
 ├── hooks/warmup.ts                  # warm-up calls and progress
 ├── hooks/reveal.ts                  # ui.render, observe, attach
 ├── hooks/status.ts                  # per-server toast, /privacy-guard
@@ -211,4 +212,4 @@ match.
 | Principle V: the plugin applies the reveal table (longest-match string substitution and marking of unknown stand-ins) on rendered rows | `ui.render` runs on every draw, and a process per draw would break SC-005 | Calling the engine per render: about 100 ms per row, visible lag. The table and the recognition regex both come from the engine, so the shim decides nothing |
 | Principle V: the plugin runs profile-declared warm-up tool calls with `$.mcp.call` | Only the host holds the MCP connections. The engine must not contact data sources (Principle II) | No warm-up: names typed before they are first returned would reach the model more often. The shim only forwards the results to `learn` |
 | Principle V: the plugin checks host preconditions (terminal surface, sandbox settings, host version) and drops questions with attachments | Only the host knows its surfaces, settings and attachments. The engine never sees them | Passing host state to the engine for a decision: same checks, plus a process call, plus host data crossing for no gain |
-| Two components, two languages | The host requires TypeScript for plugins | Classic Python shell hooks cannot rewrite the question or the display (R1) |
+| Two components, two languages | The host requires a hooks module in TypeScript or JavaScript. We choose TypeScript to type the plugin against `claude-code.d.ts` (R1) | Classic shell hooks (Python) cannot rewrite the question (`UserPromptSubmit` only adds context or suppresses). They cannot translate tool arguments or gate the reveal on the surface, and they have no `.catch` refusal. `MessageDisplay` covers assistant text only (R1). A JavaScript module would avoid the type checks for no gain |
