@@ -131,3 +131,21 @@ test('the plugin calls the engine command named by its option', async ($, on) =>
   expect(h.calls.length).toBeGreaterThan(0)
   expect(h.calls.every(c => c.argv[0] === 'mcp-privacy-guard')).toBe(true)
 })
+
+test('an invalid profile triggers a toast naming the server and the reason; the server stays protected', async ($, on) => {
+  const h = fakeHost(on, {
+    servers: { generic: { exempt: false, invalid: 'identifying-vocabulary' }, notion: { exempt: false } },
+    connected: ['generic', 'notion'],
+  })
+  await $.session.start(SESSION_START)
+  const toast = h.toasts.find(t => t.includes('generic'))
+  expect(toast).toContain('identifying-vocabulary')
+  expect(toast).not.toContain('notion')
+  expect(h.status()).toBe('privacy-guard: active · 2 protected · 0 exempt')
+})
+
+test('no toast when every profile is valid', async ($, on) => {
+  const h = fakeHost(on)
+  await $.session.start(SESSION_START)
+  expect(h.toasts.filter(t => t.includes('profile'))).toEqual([])
+})

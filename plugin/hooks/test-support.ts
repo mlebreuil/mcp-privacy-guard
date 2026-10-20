@@ -27,7 +27,7 @@ export type Host = {
   version: string
   turns: number | 'throw'
   settings: Record<string, unknown>
-  servers: Record<string, { exempt: boolean }>
+  servers: Record<string, { exempt: boolean; invalid?: string }>
   connected: string[]
   live: Set<string>
   /** Overrides the default reply of one engine subcommand. */
@@ -120,7 +120,8 @@ export function fakeHost(on: On, init: Partial<Host> = {}): Host {
                 alias,
                 {
                   profile: 'default',
-                  profile_state: 'valid',
+                  profile_state: s.invalid ? 'invalid' : 'valid',
+                  ...(s.invalid ? { profile_reason: s.invalid } : {}),
                   exempt: s.exempt,
                   ...(h.warmups[alias]
                     ? { warmup: h.warmups[alias], warmup_state: h.warm[alias] ?? 'not-started' }

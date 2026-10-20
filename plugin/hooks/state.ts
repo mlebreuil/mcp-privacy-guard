@@ -3,6 +3,7 @@
 export type ServerInfo = {
   profile: string
   profile_state: string
+  profile_reason?: string
   exempt: boolean
   warmup_state?: string
   warmup?: { tool: string; args: Record<string, unknown> }[]

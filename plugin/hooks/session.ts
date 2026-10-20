@@ -13,12 +13,28 @@ async function loadTable($: EngineInterface, id: string): Promise<void> {
   }
 }
 
+/** A server whose profile is invalid is still protected, by the default or bundled profile. */
+async function warnInvalidProfiles($: EngineInterface): Promise<void> {
+  for (const [alias, info] of Object.entries(state.servers)) {
+    if (info.profile_state !== 'invalid') continue
+    try {
+      await $.ui.toast(
+        `privacy guard: the profile for ${alias} is invalid (${info.profile_reason ?? 'unknown'}); ` +
+          'the server is still protected by a safe profile',
+      )
+    } catch {
+      // the server stays protected whether or not the toast shows
+    }
+  }
+}
+
 async function start($: EngineInterface): Promise<void> {
   const id = await $.session.id()
   state.sessionId = id
   clearReveal()
   if ((await checkPreconditions($)) === null) {
     await loadTable($, id)
+    await warnInvalidProfiles($)
     startWarmups($)
   }
 }

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 from mcp_privacy_guard.classify import shapes
@@ -32,8 +33,8 @@ class PromptOut:
     warnings: list[str] = field(default_factory=list)
 
 
-def _cues(row: dict[str, Any], config: Config) -> list[str]:
-    profile, _, _ = loader.select_profile(row["server"], config.server(row["server"]).profile)
+def _cues(row: dict[str, Any], config: Config, home: Path | None) -> list[str]:
+    profile, _, _ = loader.select_profile(row["server"], config.server(row["server"]).profile, home)
     declared = profile.kinds.get(row["kind"])
     return [*GENERIC_CUES, *(declared.cues if declared else [])]
 
@@ -46,7 +47,9 @@ def _cue_before(text: str, start: int, cues: list[str]) -> bool:
     )
 
 
-def _name_spans(text: str, store: Store, config: Config) -> list[tuple[int, int, str, str, str]]:
+def _name_spans(
+    text: str, store: Store, config: Config, home: Path | None
+) -> list[tuple[int, int, str, str, str]]:
     """(start, end, row kind, reason, real) of every known name in the question."""
     found = []
     for match in _TOKEN.finditer(text):
@@ -65,7 +68,7 @@ def _name_spans(text: str, store: Store, config: Config) -> list[tuple[int, int,
         )  # fmt: skip
         if quoted:
             found.append((start, end, row["kind"], "name+quote", token))
-        elif any(_cue_before(text, start, _cues(r, config)) for r in rows):
+        elif any(_cue_before(text, start, _cues(r, config, home)) for r in rows):
             found.append((start, end, row["kind"], "name+cue", token))
     return found
 
@@ -80,14 +83,16 @@ def _hidden_spans(text: str, config: Config) -> list[tuple[int, int, str, str, s
     return found
 
 
-def _spans(text: str, store: Store, config: Config) -> list[tuple[int, int, str, str, str]]:
+def _spans(
+    text: str, store: Store, config: Config, home: Path | None
+) -> list[tuple[int, int, str, str, str]]:
     keep = {*config.keep_values, *config.keep_files}
     spans = [
         (s, e, kind, "shape", text[s:e])
         for s, e, kind in shapes.find_embedded(text)
         if text[s:e] not in keep
     ]
-    for candidate in (*_hidden_spans(text, config), *_name_spans(text, store, config)):
+    for candidate in (*_hidden_spans(text, config), *_name_spans(text, store, config, home)):
         start, end = candidate[0], candidate[1]
         if candidate[4] in keep:
             continue
@@ -96,15 +101,17 @@ def _spans(text: str, store: Store, config: Config) -> list[tuple[int, int, str,
     return sorted(spans)
 
 
-def identifying(text: str, *, store: Store, config: Config) -> bool:
+def identifying(text: str, *, store: Store, config: Config, home: Path | None = None) -> bool:
     """Whether the question holds anything that would be replaced; changes nothing."""
-    return bool(_spans(text, store, config))
+    return bool(_spans(text, store, config, home))
 
 
-def pseudonymize_prompt(text: str, *, store: Store, config: Config) -> PromptOut:
+def pseudonymize_prompt(
+    text: str, *, store: Store, config: Config, home: Path | None = None
+) -> PromptOut:
     check_gate(store)  # no question before the session's names have loaded (FR-034)
     out, replacements, last = [], [], 0
-    for start, end, kind, reason, real in _spans(text, store, config):
+    for start, end, kind, reason, real in _spans(text, store, config, home):
         core = "NAME" if reason != "shape" and kind != "TEXT" else kind
         standin = pseudonymize(core, real, store, store.key)
         if standin == real:

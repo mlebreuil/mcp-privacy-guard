@@ -279,21 +279,96 @@ def bundled_profiles() -> list[Profile]:
     return [load_file(p) for p in sorted(PROFILES_DIR.glob("*.toml")) if p.stem != "default"]
 
 
-def select_profile(alias: str, configured: str | None) -> tuple[Profile, str, str | None]:
+@dataclass(frozen=True)
+class _UserFile:
+    """One file of `<home>/profiles/`: loaded, or the reason it could not be."""
+
+    stem: str
+    profile: Profile | None
+    reason: str | None
+    id: str | None
+    servers: list[str] | None  # None when the file is too broken to say which servers
+
+
+def _peek(path: Path) -> tuple[str | None, list[str] | None]:
+    """The id and server globs of a profile that does not load, when they can be read."""
+    try:
+        head = tomllib.loads(path.read_text(encoding="utf-8")).get("profile", {})
+        servers = head.get("servers")
+        ident = head.get("id")
+    except (OSError, tomllib.TOMLDecodeError, AttributeError):
+        return None, None
+    ok = isinstance(servers, list) and all(isinstance(v, str) for v in servers)
+    return (ident if isinstance(ident, str) else None), (list(servers) if ok else None)
+
+
+def user_profiles(home: Path, bundled: Iterable[Profile]) -> list[_UserFile]:
+    folder = home / "profiles"
+    try:
+        paths = sorted(folder.glob("*.toml"))
+    except OSError:
+        return []
+    found = []
+    for path in paths:
+        try:
+            profile = load_file(path, bundled=bundled)
+            found.append(_UserFile(path.stem, profile, None, profile.id, profile.servers))
+        except ProfileError as exc:
+            ident, servers = _peek(path)
+            found.append(_UserFile(path.stem, None, exc.reason, ident, servers))
+    return found
+
+
+def select_profile(
+    alias: str, configured: str | None, home: Path | None = None
+) -> tuple[Profile, str, str | None]:
     """The profile for a server alias: (profile, "valid" | "invalid", reason).
 
-    Order: the profile named in the config, then the bundled profile whose server globs
-    match, then the default. An invalid choice falls back to the default, never to pass-through.
+    Order: the profile named in the config, then a user profile of `<home>/profiles/` whose
+    server globs match, then the bundled profile whose globs match, then the default. An
+    invalid choice falls back to the bundled profile (when only its warm-up was dropped) or to
+    the default, never to pass-through.
     """
     default = load_bundled("default")
-    bundled = {p.id: p for p in bundled_profiles()}
+    bundled_list = bundled_profiles()
+    bundled = {p.id: p for p in bundled_list}
+    users = user_profiles(home, bundled_list) if home is not None else []
+
+    def bundled_match() -> Profile | None:
+        return next((p for p in bundled_list if p.applies_to(alias)), None)
+
+    def invalid(reason: str) -> tuple[Profile, str, str | None]:
+        fallback = bundled_match() if reason == "warmup-required" else None
+        return fallback or default, "invalid", reason
+
     if configured is not None:
+        for entry in users:
+            if entry.profile is not None and entry.profile.id == configured:
+                return entry.profile, "valid", None
         if configured in bundled:
             return bundled[configured], "valid", None
         if configured == "default":
             return default, "valid", None
+        for entry in users:
+            if entry.reason is not None and configured in (entry.id, entry.stem):
+                return invalid(entry.reason)
         return default, "invalid", "unknown-profile"
-    for profile in bundled.values():
-        if profile.applies_to(alias):
-            return profile, "valid", None
-    return default, "valid", None
+    for entry in users:
+        if entry.profile is not None:
+            if entry.profile.applies_to(alias):
+                return entry.profile, "valid", None
+        elif entry.reason is not None and (
+            entry.servers is None
+            or any(fnmatch.fnmatchcase(alias, pattern) for pattern in entry.servers)
+        ):
+            return invalid(entry.reason)
+    return bundled_match() or default, "valid", None
+
+
+def check_file(path: Path) -> list[dict[str, str]]:
+    """Errors of a profile file as `[{"path", "message"}]`; empty when it is valid."""
+    try:
+        load_file(path, bundled=bundled_profiles())
+    except ProfileError as exc:
+        return [{"path": exc.path, "message": exc.reason}]
+    return []

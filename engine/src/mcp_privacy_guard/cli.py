@@ -58,11 +58,11 @@ def _alias(text: str) -> str:
 
 
 def server_view(
-    alias: str, config: Config, store: Store | None
+    alias: str, config: Config, store: Store | None, home: Path
 ) -> tuple[dict[str, Any], bool, bool]:
     """(status entry, protected, has warm-up) for one server alias."""
     entry_cfg = config.server(alias)
-    profile, state, reason = loader.select_profile(alias, entry_cfg.profile)
+    profile, state, reason = loader.select_profile(alias, entry_cfg.profile, home)
     entry: dict[str, Any] = {
         "profile": profile.id,
         "profile_state": state,
@@ -104,7 +104,7 @@ def cmd_status(args: argparse.Namespace, home: Path) -> dict[str, Any]:
                 else "too-permissive" if exc.code == "too-permissive"
                 else "unreadable"
             )  # fmt: skip
-    out["servers"] = {a: server_view(a, config, store)[0] for a in args.servers}
+    out["servers"] = {a: server_view(a, config, store, home)[0] for a in args.servers}
     if store is not None:
         store.close()
     out["recognise"] = RECOGNISE
@@ -121,7 +121,7 @@ def cmd_begin(args: argparse.Namespace, home: Path) -> dict[str, Any]:
     try:
         warmup = []
         for alias in args.servers:
-            _, protected, has_warmup = server_view(alias, config, None)
+            _, protected, has_warmup = server_view(alias, config, None, home)
             if protected and has_warmup:
                 gate.register(store, alias)
                 warmup.append(alias)
@@ -170,7 +170,7 @@ def cmd_result(args: argparse.Namespace, home: Path) -> dict[str, Any]:
     config = load_config(home)
     store = Store.open(home, args.session)
     try:
-        profile, _, _ = loader.select_profile(args.server, config.server(args.server).profile)
+        profile, _, _ = loader.select_profile(args.server, config.server(args.server).profile, home)
         out = pseudonymize_result(
             result,
             store=store,
@@ -217,8 +217,8 @@ def cmd_prompt(args: argparse.Namespace, home: Path) -> dict[str, Any]:
     try:
         gate.check_gate(store)
         if args.command:
-            return {"identifying": identifying(text, store=store, config=config)}
-        out = pseudonymize_prompt(text, store=store, config=config)
+            return {"identifying": identifying(text, store=store, config=config, home=home)}
+        out = pseudonymize_prompt(text, store=store, config=config, home=home)
         return {
             "text": out.text,
             "replacements": out.replacements,
@@ -237,7 +237,7 @@ def cmd_learn(args: argparse.Namespace, home: Path) -> dict[str, Any]:
     config = load_config(home)
     store = Store.open(home, args.session)
     try:
-        profile, _, _ = loader.select_profile(args.server, config.server(args.server).profile)
+        profile, _, _ = loader.select_profile(args.server, config.server(args.server).profile, home)
         pseudonymize_result(
             result, store=store, profile=profile, config=config, server=args.server, tool=args.tool
         )
@@ -290,8 +290,9 @@ def cmd_reveal(args: argparse.Namespace, home: Path) -> dict[str, Any]:
     return {"_raw": out.text}
 
 
-def _not_built(args: argparse.Namespace, home: Path) -> dict[str, Any]:
-    raise GuardError("not-implemented", "this subcommand is not built yet")
+def cmd_check_profile(args: argparse.Namespace, home: Path) -> dict[str, Any]:
+    errors = loader.check_file(Path(args.file))
+    return {"valid": False, "errors": errors} if errors else {"valid": True}
 
 
 # -- parser and entry point --------------------------------------------------------------
@@ -337,7 +338,7 @@ def build_parser() -> argparse.ArgumentParser:
     observe.add_argument("--since", type=int, default=0)
     shown = add("reveal", cmd_reveal, required=False)
     shown.add_argument("--json", action="store_true")
-    add("check-profile", _not_built, session=False).add_argument("rest", nargs="*")
+    add("check-profile", cmd_check_profile, session=False).add_argument("file")
     return parser
 
 

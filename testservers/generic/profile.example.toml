@@ -1,0 +1,49 @@
+# Example profile for the generic test server (docs/profiles.md walks through it).
+# A profile only makes handling more precise: values that are not listed here stay hidden.
+
+[profile]
+id = "generic-example"
+version = 1
+description = "Example profile for the generic test server"
+servers = ["generic"]
+
+# Name kinds teach the question check which words are names; every name still gets an n-… stand-in.
+[kinds.DEVICE_NAME]
+cues = ["device", "firewall", "router"]
+
+[kinds.OBJECT_NAME]
+cues = ["object", "rule", "subnet"]
+
+[[fields]]
+path = "devices[].name"
+tools = ["list_devices"]
+kind = "DEVICE_NAME"
+
+[[fields]]
+path = "rules[].name"
+tools = ["get_config"]
+kind = "OBJECT_NAME"
+
+# Enums: only these values stay readable, any other value becomes a stand-in.
+[[fields]]
+path = "devices[].state"
+enum = ["connected", "disconnected", "unknown"]
+
+[[fields]]
+path = "rules[].action"
+enum = ["allow", "deny", "drop"]
+
+# Free text stays one TEXT stand-in.
+[[fields]]
+path = "**.description"
+kind = "TEXT"
+
+# The "keyed" tool returns an object keyed by host names and addresses. Plain keys such as
+# "summary" are kept; keys that look like a host name or an address are hidden anyway.
+[[fields]]
+path = "*"
+tools = ["keyed"]
+keys = "keep"
+
+[text]
+mode = "mixed"
