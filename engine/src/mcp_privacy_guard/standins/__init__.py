@@ -48,7 +48,12 @@ def pseudonymize(kind: str, real: str, store: Store, key: bytes) -> str:
     if core == "NAME":
         return _name(store, key, real)
     if core == "IP":
-        return _record(store, "IP", real, ip.permute(key, real))
+        standin = ip.permute(key, real)
+        clash = store.lookup_standin(standin)
+        if standin != real and clash is not None and clash["fixed"]:
+            # the stand-in would read as a fixed value the model saw unchanged (research R15)
+            return _record(store, "TEXT", real, misc.text(key, real))
+        return _record(store, "IP", real, standin)
     if core == "FQDN":
         _record_fqdn_parts(store, key, real)
         return _record(store, "FQDN", real, domains.fqdn(key, real))

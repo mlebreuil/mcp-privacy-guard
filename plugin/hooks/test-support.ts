@@ -35,6 +35,8 @@ export type Host = {
   calls: Call[]
   statuses: (string | undefined)[]
   toasts: string[]
+  /** Slash commands the plugin registered. */
+  commands: string[]
   /** How many times a plugin asked the rows to be drawn again. */
   invalidations: number
   /** The last status line shown, or undefined. */
@@ -82,6 +84,7 @@ export function fakeHost(on: On, init: Partial<Host> = {}): Host {
     calls: [],
     statuses: [],
     toasts: [],
+    commands: [],
     invalidations: 0,
     status: () => h.statuses.at(-1),
     called: sub => h.calls.filter(c => c.sub === sub),
@@ -173,6 +176,7 @@ export function fakeHost(on: On, init: Partial<Host> = {}): Host {
         return { out: { args: swapped, translated: 1, table: { rev: 0, entries: [] } } }
       }
       case 'result':
+        if (call.argv.includes('--exempt')) return { out: { fixed: 1 } }
         return {
           out: {
             result: { content: [{ type: 'text', text: 'PSEUDONYMIZED' }], isError: false },
@@ -271,6 +275,10 @@ export function fakeHost(on: On, init: Partial<Host> = {}): Host {
   on('ui.invalidate', () => {
     h.invalidations += 1
     return { value: undefined }
+  })
+  on('command.register', (_$, e) => {
+    h.commands.push(e.name)
+    return { value: { command: e.name } }
   })
   on('session.attach', (_$, e) => ({ clientId: e.clientId }))
   on('ui.status', (_$, e) => {

@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from mcp_privacy_guard.classify import shapes
+from mcp_privacy_guard.errors import Refused
 from mcp_privacy_guard.standins import ip
 from mcp_privacy_guard.store import Store
 
@@ -31,34 +32,46 @@ class _Translator:
         self.store = store
         self.count = 0
         self.unknown = unknown  # when given, unknown name-shaped stand-ins are collected here
+        self.flagged: set[str] = set()
 
-    def _known(self, text: str) -> str | None:
+    def _resolve(self, text: str, may_invert: bool) -> str | None:
+        """The real value of a stand-in, or None to leave `text` as typed.
+
+        A fixed entry is a value the model saw unchanged: it is never inverted. A value that
+        is both fixed and an issued stand-in cannot be told apart (research R15): `args`
+        refuses the call, `reveal` marks it.
+        """
         row = self.store.lookup_standin(text)
-        if row is None or row["fixed"]:
-            return None
-        return str(row["real"])
-
-    def _ip(self, text: str) -> str | None:
-        if shapes.classify_whole(text) != "IP":
+        if row is not None:
+            if row["fixed"]:
+                return None
+            if self.store.is_ambiguous(text):
+                if self.unknown is None:
+                    raise Refused("ambiguous-address", "an address in this call is ambiguous")
+                self.flagged.add(text)
+                return None
+            return str(row["real"])
+        if not may_invert or shapes.classify_whole(text) != "IP":
             return None
         real = ip.invert(self.store.key, text)
         return real if real != text else None
 
     def string(self, text: str) -> str:
-        whole = self._known(text) or self._ip(text)
+        whole = self._resolve(text, True)
         if whole is not None:
             self.count += 1
             return whole
         out, last = [], 0
         for start, end, kind in shapes.find_embedded(text, [(STANDIN_TOKEN, "NAME")]):
             piece = text[start:end]
-            real = self._known(piece) or (self._ip(piece) if kind == "IP" else None)
+            real = self._resolve(piece, kind == "IP")
             if real is None:
-                if self.unknown is not None and kind == "NAME":
+                if self.unknown is not None and (kind == "NAME" or piece in self.flagged):
                     out.append(text[last:end])
                     out.append(UNKNOWN_MARK)
                     last = end
-                    self.unknown.append(piece)
+                    if kind == "NAME":
+                        self.unknown.append(piece)
                 continue
             out.append(text[last:start])
             out.append(real)

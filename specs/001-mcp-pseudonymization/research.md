@@ -578,6 +578,11 @@ they know".
     `args` exits 4 with `ambiguous-address`. The plugin denies the call with "privacy guard:
     an address in this call is ambiguous; ask the user to state it", with no value in the
     message. Reveal marks it `(?)`.
+- **Storage** (T093): a fixed entry has kind `FIXED` (so it never clashes with the `IP` row of
+  the same real address and `pseudonymize` never returns a real address as its own stand-in).
+  If the address is already another value's issued stand-in, no row is added; the session
+  records `meta ambiguous:<address>`, which `args` turns into exit 4 `ambiguous-address` and
+  `reveal` into `⟨?⟩`.
 - **Keep-list collision at issue time**: when a real IP's stand-in would equal a fixed
   keep-list value, that real IP is pseudonymized as `TEXT` instead (the IP shape is lost for
   it). The keep list is known from `begin`, so this is checked before any stand-in is issued.
@@ -596,6 +601,13 @@ they know".
   value from the store. Server aliases and profile names are not sensitive: the model
   already sees the aliases in tool names (`mcp__<alias>__…`).
 - The status line keeps the short form `privacy-guard: active · n protected · m exempt`.
-- **Verify at implementation**: whether the text returned by `command.run` is added to the
-  conversation the model reads. It holds nothing sensitive either way.
+- **Verified 2026-10-20 (T087, declarations of 2.1.304; live run still part of quickstart
+  T102)**: `$.command.register({ name, description })` in `session.start` declares the
+  command, and a `command.run` hook on `{ command: 'privacy-guard' }` answers with `{ text }`
+  without `next`. The declarations say `text` is the command's output as a **transcript line**
+  (the user's screen) and `context` is what the model reads after it, "never seen by the
+  person". So `{ text }` is not stated to enter the conversation the model reads, and the guard
+  returns no `context`. It holds nothing sensitive either way. A second `session.start` hook
+  without a matcher is refused by the host, so the registration runs inside the one in
+  `session.ts`.
 

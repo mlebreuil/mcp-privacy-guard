@@ -3,6 +3,7 @@ import type { EngineInterface, On } from 'claude-code'
 import { runEngine, TIMEOUTS } from './engine'
 import { checkPreconditions } from './preconditions'
 import { clearReveal, state } from './state'
+import { registerStatusCommand, showOverview } from './status'
 import { startWarmups } from './warmup'
 
 async function loadTable($: EngineInterface, id: string): Promise<void> {
@@ -35,6 +36,11 @@ async function start($: EngineInterface): Promise<void> {
   if ((await checkPreconditions($)) === null) {
     await loadTable($, id)
     await warnInvalidProfiles($)
+    try {
+      await showOverview($)
+    } catch {
+      // only the display is affected
+    }
     startWarmups($)
   }
 }
@@ -50,6 +56,7 @@ export async function currentSession($: EngineInterface): Promise<void> {
 
 export function registerSession(on: On): void {
   on('session.start', async ($, e, next) => {
+    await registerStatusCommand($)
     try {
       await start($)
     } catch {

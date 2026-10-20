@@ -6,6 +6,7 @@ import { registerPrompt } from './prompt'
 import { registerReveal } from './reveal'
 import { registerSession } from './session'
 import { state } from './state'
+import { registerStatus } from './status'
 
 export const register: Register = (on, options) => {
   const path = options.enginePath
@@ -16,4 +17,5 @@ export const register: Register = (on, options) => {
   registerPrompt(on)
   registerCommand(on)
   registerReveal(on)
+  registerStatus(on)
 }

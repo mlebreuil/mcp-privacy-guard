@@ -39,8 +39,9 @@ test('a command without arguments runs as it is', async ($, on) => {
 test('the guard\'s own command is not masked', async ($, on) => {
   const h = fakeHost(on)
   await $.session.start(SESSION_START)
-  await run($, 'privacy-guard', '10.1.2.15')
-  expect(h.commandArgs).toEqual(['10.1.2.15'])
+  const out = await run($, 'privacy-guard', '10.1.2.15')
+  expect(JSON.stringify(out)).toContain('privacy guard: active') // the guard answers itself
+  expect(h.commandArgs).toEqual([]) // and the command never reaches the host
   expect(h.called('prompt').length).toBe(0)
 })
 

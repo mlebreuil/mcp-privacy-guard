@@ -10,7 +10,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
 from typing import Any, NoReturn
 
@@ -18,11 +18,13 @@ from mcp_privacy_guard import __version__
 from mcp_privacy_guard import reveal as revealing
 from mcp_privacy_guard import warmup as gate
 from mcp_privacy_guard.arguments import translate
+from mcp_privacy_guard.classify import shapes
 from mcp_privacy_guard.config import Config, load_config, resolve_home
 from mcp_privacy_guard.errors import BadInput, GuardError, StoreUnavailable
 from mcp_privacy_guard.profiles import loader
 from mcp_privacy_guard.prompts import identifying, pseudonymize_prompt
 from mcp_privacy_guard.results import pseudonymize_result
+from mcp_privacy_guard.standins import ip
 from mcp_privacy_guard.store import Store, check_sid
 
 RECOGNISE = r"\b(n|text|h|d|u|g|dom|p)-[a-z2-7]{6,}\b"
@@ -125,6 +127,9 @@ def cmd_begin(args: argparse.Namespace, home: Path) -> dict[str, Any]:
             if protected and has_warmup:
                 gate.register(store, alias)
                 warmup.append(alias)
+        for value in (*config.keep_values, *config.keep_files):
+            if shapes.classify_whole(value) == "IP":
+                store.fix(value)
     except BaseException:
         store.close()
         Store.end(home, args.session)
@@ -162,6 +167,30 @@ def table_reply(store: Store, since: int) -> dict[str, Any]:
     return {"rev": rev, "entries": entries}
 
 
+def _strings_of(value: Any) -> Iterable[str]:
+    if isinstance(value, str):
+        yield value
+    elif isinstance(value, dict):
+        for item in value.values():
+            yield from _strings_of(item)
+    elif isinstance(value, list):
+        for item in value:
+            yield from _strings_of(item)
+
+
+def record_fixed(result: dict[str, Any], store: Store) -> int:
+    """Exempt server: its IP forms reach the model unchanged, so they are fixed (R15)."""
+    seen: set[str] = set()
+    for text in _strings_of(result):
+        for start, end, kind in shapes.find_embedded(text):
+            piece = text[start:end]
+            if kind == "IP" and ip.permute(store.key, piece) != piece:
+                seen.add(piece)
+    for piece in seen:
+        store.fix(piece)
+    return len(seen)
+
+
 def cmd_result(args: argparse.Namespace, home: Path) -> dict[str, Any]:
     body = read_stdin_json()
     result = body.get("result")
@@ -170,6 +199,8 @@ def cmd_result(args: argparse.Namespace, home: Path) -> dict[str, Any]:
     config = load_config(home)
     store = Store.open(home, args.session)
     try:
+        if args.exempt:
+            return {"fixed": record_fixed(result, store)}
         profile, _, _ = loader.select_profile(args.server, config.server(args.server).profile, home)
         out = pseudonymize_result(
             result,
@@ -320,6 +351,7 @@ def build_parser() -> argparse.ArgumentParser:
     result.add_argument("--server", required=True, type=_alias)
     result.add_argument("--tool", required=True, type=_alias)
     result.add_argument("--since", type=int, default=0)
+    result.add_argument("--exempt", action="store_true")
     call = add("args", cmd_args)
     call.add_argument("--server", required=True, type=_alias)
     call.add_argument("--tool", required=True, type=_alias)

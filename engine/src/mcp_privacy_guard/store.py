@@ -25,6 +25,7 @@ from mcp_privacy_guard.errors import BadInput, Refused, StoreUnavailable
 SID = re.compile(r"[A-Za-z0-9_-]{1,128}")
 STALE_SECONDS = 24 * 3600
 SCHEMA_VERSION = "1"
+AMBIGUOUS = "ambiguous:"
 
 SCHEMA = """
 CREATE TABLE standin (
@@ -287,6 +288,24 @@ class Store:
             self._db.execute("ROLLBACK")
             raise
         return standin
+
+    def fix(self, value: str) -> bool:
+        """Record `value` as a fixed entry (`standin = real`): a value the model saw unchanged.
+
+        Returns False and flags the value ambiguous when it is already another value's issued
+        stand-in (research R15): `args` then refuses it and `reveal` marks it.
+        """
+        row = self.lookup_standin(value)
+        if row is None:
+            self.issue("FIXED", value, value, fixed=True)
+            return True
+        if not row["fixed"]:
+            self.meta_set(AMBIGUOUS + value, "1")
+            return False
+        return True
+
+    def is_ambiguous(self, value: str) -> bool:
+        return self.meta_get(AMBIGUOUS + value) is not None
 
     def lookup_standin(self, standin: str) -> Row | None:
         return self._row("SELECT * FROM standin WHERE standin = ?", (standin,))

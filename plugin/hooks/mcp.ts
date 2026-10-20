@@ -87,10 +87,21 @@ export function registerMcp(on: On): void {
     }
     await invalidateRows($, before)
     const translated = { ...e, ...rewritten } as typeof e
-    if (state.servers[server]?.exempt === true) return next(translated)
-
     const ran = await next(translated)
     if (ran.deny !== undefined) return ran
+    if (state.servers[server]?.exempt === true) {
+      // the result goes through unchanged; its IP forms are recorded as fixed values (R15)
+      try {
+        await runEngine(
+          $,
+          ['result', '--session', state.sessionId ?? '', '--server', server, '--tool', name, '--exempt'],
+          { result: ran.result },
+        )
+      } catch {
+        // exempt data passes anyway: a failure here holds nothing back
+      }
+      return ran
+    }
     try {
       const reply = await runEngine(
         $,
