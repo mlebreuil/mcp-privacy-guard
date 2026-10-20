@@ -77,6 +77,16 @@ function countLine(servers: Record<string, ServerInfo>): string {
   return `privacy-guard: active · ${all.length - exempt} protected · ${exempt} exempt`
 }
 
+/** The status line when the guard is active: how many servers are protected and exempt. */
+export function showActive($: EngineInterface): void {
+  $.ui.status(countLine(state.servers))
+}
+
+/** Replaces the status line; the block reason, when there is one, stays in `state`. */
+export function setStatus($: EngineInterface, text: string): void {
+  $.ui.status(text)
+}
+
 function show($: EngineInterface, reason: string | null): void {
   state.blockReason = reason
   state.ready = reason === null
@@ -99,6 +109,7 @@ async function run($: EngineInterface): Promise<string | null> {
     return 'privacy guard: cannot list the MCP servers; restart Claude Code'
   }
   const list = servers.join(',')
+  state.connected = [...servers].sort().join(',')
   let status: Reply
   try {
     status = await runEngine($, ['status', '--session', id, '--servers', list])

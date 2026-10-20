@@ -6,6 +6,8 @@ export class EngineError extends Error {
   constructor(
     readonly exitCode: number,
     readonly code: string,
+    /** The engine's error object: `servers`, `reason`, `hint`. Never a value from the input. */
+    readonly details: Record<string, unknown> = {},
   ) {
     super(code)
   }
@@ -55,8 +57,12 @@ export async function runEngine(
     throw new EngineError(done.exitCode || 5, 'bad-reply')
   }
   if (done.exitCode !== 0) {
-    const error = (body as { error?: { code?: unknown } } | null)?.error
-    throw new EngineError(done.exitCode, typeof error?.code === 'string' ? error.code : 'error')
+    const error = (body as { error?: Record<string, unknown> } | null)?.error ?? {}
+    throw new EngineError(
+      done.exitCode,
+      typeof error.code === 'string' ? error.code : 'error',
+      error,
+    )
   }
   if (typeof body !== 'object' || body === null) throw new EngineError(5, 'bad-reply')
   const reply = body as Reply

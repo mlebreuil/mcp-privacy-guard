@@ -13,16 +13,17 @@ from typing import Any
 
 from mcp_privacy_guard.classify import shapes
 from mcp_privacy_guard.classify.text import mixed
-from mcp_privacy_guard.classify.vocabulary import is_key_word, is_safe_word
+from mcp_privacy_guard.classify.vocabulary import is_common_word, is_key_word, is_safe_word
 from mcp_privacy_guard.config import Config
 from mcp_privacy_guard.errors import Refused
 from mcp_privacy_guard.profiles.loader import ARRAY, Profile
-from mcp_privacy_guard.standins import pseudonymize
+from mcp_privacy_guard.standins import CORE_KINDS, pseudonymize
 from mcp_privacy_guard.store import Store
 
 _CAMEL = re.compile(r"(?<=[a-z])(?=[A-Z])")
 _SPLIT = re.compile(r"[\s_.\-/]+")
 _SHAPE_KINDS = frozenset({"IP", "FQDN", "URL", "MAC", "EMAIL", "USER", "DIGITS"})
+_NAME_KINDS = frozenset({"NAME", "USER", "GROUP"})
 MAX_KEY_WORDS = 4
 
 
@@ -53,6 +54,9 @@ class Walker:
             raise Refused("timeout", "the result took too long to pseudonymize")
 
     def stand_in(self, kind: str, real: str) -> str:
+        if kind in _NAME_KINDS or kind not in CORE_KINDS:
+            # a name, user or group: learn it so a question can recognise it (research R9)
+            self.store.add_name(real, kind, self.server, is_common_word(real))
         return pseudonymize(kind, real, self.store, self.store.key)
 
     # -- walking -----------------------------------------------------------------------

@@ -309,6 +309,10 @@ class Store:
     def names(self) -> list[Row]:
         return [dict(r) for r in self._db.execute("SELECT * FROM names").fetchall()]
 
+    def names_for(self, real: str) -> list[Row]:
+        rows = self._db.execute("SELECT * FROM names WHERE real = ?", (real,)).fetchall()
+        return [dict(r) for r in rows]
+
     def meta_get(self, key: str) -> str | None:
         row = self._db.execute("SELECT value FROM meta WHERE key = ?", (key,)).fetchone()
         return None if row is None else str(row["value"])

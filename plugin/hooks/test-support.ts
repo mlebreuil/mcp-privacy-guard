@@ -21,6 +21,8 @@ export type Host = {
   sessionId: string
   /** Makes `$.session.id()` fail, as a hook's own dependency can. */
   idFails: boolean
+  /** Makes `$.ui.toast` fail, which a hook only reaches after `next`. */
+  toastFails: boolean
   surfaces: string[]
   version: string
   turns: number | 'throw'
@@ -44,12 +46,29 @@ export type Host = {
   toolInputs: Record<string, unknown>[]
   /** The plugin's own folder, as the engine reports it when the plugin loads. */
   pluginRoot: string
+  /** The texts that reached the model's prompt, after the plugin's rewrites. */
+  submitted: string[]
+  /** Warm-up lists the fake engine reports per server, and the state it keeps. */
+  warmups: Record<string, { tool: string; args: Record<string, unknown> }[]>
+  warm: Record<string, string>
+  /** Tools the model can call (`mcp__<server>__<tool>`). */
+  toolNames: string[]
+  /** `$.mcp.call` as seen by the (fake) MCP servers, and how it answers. */
+  mcpCalls: { server: string; tool: string; args: unknown }[]
+  mcpAnswer: (server: string, tool: string) => unknown
+  /** How long (milliseconds on the mock clock) `$.mcp.call` takes. */
+  mcpDelayMs: number
+  clock?: { sleep: (ms: number) => Promise<void> }
+  /** What `command.run` and `skill.prompt` received beneath the plugin. */
+  commandArgs: string[]
+  skillTexts: string[]
 }
 
 export function fakeHost(on: On, init: Partial<Host> = {}): Host {
   const h: Host = {
     sessionId: SID,
     idFails: false,
+    toastFails: false,
     surfaces: ['terminal'],
     version: '2.1.303',
     turns: 0,
@@ -66,6 +85,15 @@ export function fakeHost(on: On, init: Partial<Host> = {}): Host {
     pluginRoot: '',
     toolRuns: 0,
     toolInputs: [],
+    submitted: [],
+    warmups: {},
+    warm: {},
+    toolNames: [],
+    mcpCalls: [],
+    mcpAnswer: () => ({ content: [{ type: 'text', text: '{}' }], isError: false }),
+    mcpDelayMs: 0,
+    commandArgs: [],
+    skillTexts: [],
     mcpResult: () => ({
       result: { content: [{ type: 'text', text: 'REAL 10.1.2.15' }], isError: false },
     }),
@@ -87,7 +115,14 @@ export function fakeHost(on: On, init: Partial<Host> = {}): Host {
             servers: Object.fromEntries(
               Object.entries(h.servers).map(([alias, s]) => [
                 alias,
-                { profile: 'default', profile_state: 'valid', exempt: s.exempt },
+                {
+                  profile: 'default',
+                  profile_state: 'valid',
+                  exempt: s.exempt,
+                  ...(h.warmups[alias]
+                    ? { warmup: h.warmups[alias], warmup_state: h.warm[alias] ?? 'not-started' }
+                    : {}),
+                },
               ]),
             ),
             recognise: RECOGNISE,
@@ -98,10 +133,34 @@ export function fakeHost(on: On, init: Partial<Host> = {}): Host {
         }
       case 'begin':
         if (sid) h.live.add(sid)
-        return { out: { session: 'live', swept: 0, warmup: [] } }
+        for (const alias of Object.keys(h.warmups)) h.warm[alias] ??= 'not-started'
+        return { out: { session: 'live', swept: 0, warmup: Object.keys(h.warmups) } }
       case 'end':
         if (sid) h.live.delete(sid)
         return { out: { deleted: true, swept: 0 } }
+      case 'prompt': {
+        const text = (call.stdin as { text: string }).text
+        if (call.argv.includes('--command')) return { out: { identifying: true } }
+        const swapped = text.split('10.1.2.15').join('10.83.4.12')
+        const n = text.split('10.1.2.15').length - 1
+        return {
+          out: {
+            text: swapped,
+            replacements: Array.from({ length: n }, () => ({ kind: 'IP' })),
+            warnings: [],
+            table: { rev: 0, entries: [] },
+          },
+        }
+      }
+      case 'warmup': {
+        const server = call.argv[call.argv.indexOf('--server') + 1] ?? ''
+        h.warm[server] = call.argv[call.argv.indexOf('--state') + 1] ?? ''
+        const pending = Object.keys(h.warm).filter(k => ['not-started', 'running'].includes(h.warm[k] ?? ''))
+        const failed = Object.keys(h.warm).filter(k => h.warm[k] === 'failed')
+        return { out: { pending, failed } }
+      }
+      case 'learn':
+        return { out: { names: 3 } }
       case 'args': {
         const given = (call.stdin as { args: Record<string, unknown> }).args
         const swapped = Object.fromEntries(
@@ -159,6 +218,27 @@ export function fakeHost(on: On, init: Partial<Host> = {}): Host {
     return { ...h.mcpResult(), text: 'ran', ref: 1 } as never
   })
   on('prompt.compose', () => ({ sections: [] }))
+  on('prompt.submit', (_$, e) => {
+    h.submitted.push(e.text)
+    return { text: e.text }
+  })
+  on('command.run', (_$, e) => {
+    h.commandArgs.push(e.args)
+    return { text: 'ran' }
+  })
+  on('skill.prompt', (_$, e) => {
+    h.skillTexts.push(e.text)
+    return { text: e.text }
+  })
+  on('tool.list', () => ({
+    value: h.toolNames.map(name => ({ name, description: '', mcp: true })),
+  }))
+  on('mcp.call', async (_$, e) => {
+    h.mcpCalls.push({ server: e.server, tool: e.tool, args: e.args })
+    if (h.mcpDelayMs > 0) await h.clock?.sleep(h.mcpDelayMs)
+    const answer = h.mcpAnswer(e.server, e.tool)
+    return answer === 'throw' ? { deny: 'no such tool' } : { value: answer as never }
+  })
   on('session.id', () => (h.idFails ? { deny: 'session id unavailable' } : { value: h.sessionId }))
   on('env.get', (_$, e) => ({ value: e.name === 'HOME' ? '/home/u' : undefined }))
   on('session.surfaces', () => ({ value: h.surfaces as never }))
@@ -189,6 +269,7 @@ export function fakeHost(on: On, init: Partial<Host> = {}): Host {
     return { value: undefined }
   })
   on('ui.toast', (_$, e) => {
+    if (h.toastFails) return { deny: 'toast failed' }
     h.toasts.push(e.text)
     return { value: undefined }
   })

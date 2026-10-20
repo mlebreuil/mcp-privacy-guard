@@ -5,6 +5,7 @@ export type ServerInfo = {
   profile_state: string
   exempt: boolean
   warmup_state?: string
+  warmup?: { tool: string; args: Record<string, unknown> }[]
 }
 
 export type TableEntry = { standin: string; real: string; kind: string }
@@ -19,6 +20,12 @@ export const state = {
   /** `<home>` as the engine reports it, once known. */
   home: '',
   servers: {} as Record<string, ServerInfo>,
+  /** The MCP servers seen connected at the last listing (sorted, joined by a comma). */
+  connected: '',
+  /** Servers whose warm-up this process is running now, and the progress of the batch. */
+  warming: new Set<string>(),
+  warmDone: 0,
+  warmTotal: 0,
   recognise: '',
   /** false after a remote client attached claiming to be a terminal (research R1). */
   revealAllowed: true,

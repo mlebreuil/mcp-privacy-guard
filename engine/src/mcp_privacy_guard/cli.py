@@ -15,10 +15,12 @@ from pathlib import Path
 from typing import Any, NoReturn
 
 from mcp_privacy_guard import __version__
+from mcp_privacy_guard import warmup as gate
 from mcp_privacy_guard.arguments import translate
 from mcp_privacy_guard.config import Config, load_config, resolve_home
 from mcp_privacy_guard.errors import BadInput, GuardError, StoreUnavailable
 from mcp_privacy_guard.profiles import loader
+from mcp_privacy_guard.prompts import identifying, pseudonymize_prompt
 from mcp_privacy_guard.results import pseudonymize_result
 from mcp_privacy_guard.store import Store, check_sid
 
@@ -26,8 +28,8 @@ RECOGNISE = r"\b(n|text|h|d|u|g|dom|p)-[a-z2-7]{6,}\b"
 KINDS = [
     "IP", "FQDN", "URL", "MAC", "EMAIL", "USER", "GROUP", "NAME", "DIGITS", "TEXT", "MIXED",
 ]  # fmt: skip
-WARMUP_PREFIX = "warmup_state:"
-WARMUP_REASON_PREFIX = "warmup_reason:"
+WARMUP_PREFIX = gate.STATE
+WARMUP_REASON_PREFIX = gate.REASON
 
 Handler = Callable[[argparse.Namespace, Path], dict[str, Any]]
 
@@ -73,7 +75,7 @@ def server_view(
         entry["warmup"] = [{"tool": w.tool, "args": w.args} for w in profile.warmup]
         if store is not None:
             entry["warmup_state"] = store.meta_get(WARMUP_PREFIX + alias) or "not-started"
-            entry["warmup_reason"] = store.meta_get(WARMUP_REASON_PREFIX + alias)
+            entry["warmup_reason"] = store.meta_get(WARMUP_REASON_PREFIX + alias) or None
     return entry, protected, has_warmup
 
 
@@ -120,7 +122,7 @@ def cmd_begin(args: argparse.Namespace, home: Path) -> dict[str, Any]:
         for alias in args.servers:
             _, protected, has_warmup = server_view(alias, config, None)
             if protected and has_warmup:
-                store.meta_set(WARMUP_PREFIX + alias, "not-started")
+                gate.register(store, alias)
                 warmup.append(alias)
     except BaseException:
         store.close()
@@ -204,6 +206,56 @@ def cmd_args(args: argparse.Namespace, home: Path) -> dict[str, Any]:
         store.close()
 
 
+def cmd_prompt(args: argparse.Namespace, home: Path) -> dict[str, Any]:
+    body = read_stdin_json()
+    text = body.get("text")
+    if not isinstance(text, str):
+        raise BadInput("bad-json", "stdin needs a `text` string")
+    config = load_config(home)
+    store = Store.open(home, args.session)
+    try:
+        gate.check_gate(store)
+        if args.command:
+            return {"identifying": identifying(text, store=store, config=config)}
+        out = pseudonymize_prompt(text, store=store, config=config)
+        return {
+            "text": out.text,
+            "replacements": out.replacements,
+            "warnings": out.warnings,
+            "table": table_reply(store, args.since),
+        }
+    finally:
+        store.close()
+
+
+def cmd_learn(args: argparse.Namespace, home: Path) -> dict[str, Any]:
+    body = read_stdin_json()
+    result = body.get("result")
+    if not isinstance(result, dict):
+        raise BadInput("bad-json", "stdin needs a `result` object")
+    config = load_config(home)
+    store = Store.open(home, args.session)
+    try:
+        profile, _, _ = loader.select_profile(args.server, config.server(args.server).profile)
+        pseudonymize_result(
+            result, store=store, profile=profile, config=config, server=args.server, tool=args.tool
+        )
+        return {"names": len(store.names())}
+    finally:
+        store.close()
+
+
+def cmd_warmup(args: argparse.Namespace, home: Path) -> dict[str, Any]:
+    store = Store.open(home, args.session)
+    try:
+        gate.register(store, args.server)
+        gate.set_state(store, args.server, args.state, args.reason)
+        pending, failed = gate.summary(store)
+        return {"pending": pending, "failed": failed}
+    finally:
+        store.close()
+
+
 def _not_built(args: argparse.Namespace, home: Path) -> dict[str, Any]:
     raise GuardError("not-implemented", "this subcommand is not built yet")
 
@@ -237,7 +289,17 @@ def build_parser() -> argparse.ArgumentParser:
     call.add_argument("--server", required=True, type=_alias)
     call.add_argument("--tool", required=True, type=_alias)
     call.add_argument("--since", type=int, default=0)
-    for name in ("prompt", "learn", "warmup", "observe"):
+    prompt = add("prompt", cmd_prompt)
+    prompt.add_argument("--since", type=int, default=0)
+    prompt.add_argument("--command", action="store_true")
+    learn = add("learn", cmd_learn)
+    learn.add_argument("--server", required=True, type=_alias)
+    learn.add_argument("--tool", required=True, type=_alias)
+    warm = add("warmup", cmd_warmup)
+    warm.add_argument("--server", required=True, type=_alias)
+    warm.add_argument("--state", required=True, choices=["running", "complete", "failed"])
+    warm.add_argument("--reason")
+    for name in ("observe",):
         p = add(name, _not_built)
         p.add_argument("rest", nargs="*")
     add("reveal", _not_built, session=False).add_argument("rest", nargs="*")
@@ -246,7 +308,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _error(exc: GuardError) -> dict[str, Any]:
-    return {"error": {"code": exc.code, "message": exc.message, "hint": exc.hint}}
+    return {"error": {"code": exc.code, "message": exc.message, "hint": exc.hint, **exc.details}}
 
 
 def main(argv: Sequence[str] | None = None) -> int:

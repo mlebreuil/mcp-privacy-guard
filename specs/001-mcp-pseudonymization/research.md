@@ -45,13 +45,23 @@ Source: the API declarations shipped with Claude Code 2.1.301 and re-read on 2.1
   asks the model, `{ drop }` stops only the turn, which has run, and a rewrite of `text` is not
   applied (`e.command` set). The declarations say to mask arguments at `command.run`
   (`next({ ...e, args })`) and a skill's body at `skill.prompt` (`text`).
-- **Verify** (task T103): (1) `command.run` fires for forks and for built-in commands that ask
+- **Verified** (task T103, below): (1) `command.run` fires for forks and for built-in commands that ask
   the model; (2) `prompt.submit` sees the `args` that `command.run` left; (3) `skill.prompt`
   fires for `/name`, the Skill tool and preloaded subagent skills, and `text` holds the user's
   arguments; (4) a throw or refusal at `command.run` or `skill.prompt` is possible and fails
   closed.
-- **Decision (pending the verify)**: pseudonymize `args` at `command.run` with the engine's
-  `prompt`, and block the command when it cannot. Any path not covered is listed as a residual
+- **Result (task T103, 2026-10-20, from the 2.1.303 declarations; a live run is part of
+  quickstart, T102)**: (1) `CommandRunInput` is "one slash command about to run, the way the
+  person typed it", and `PromptSubmitInput` says a fork command raises no `prompt.submit` and
+  that arguments are masked at `command.run`, so `command.run` is the hook that sees every
+  command. (2) `PromptSubmitCommand` is "the command as `command.run`'s hooks left it, their
+  change of arguments included". (3) `SkillPromptInput` is raised for a skill "typed as `/name`,
+  run by the Skill tool, or preloaded into a subagent", with `text` a hook's to rewrite.
+  (4) A `command.run` hook that answers without `next` "runs no command" and its `text` is
+  shown, so a refusal is possible; `.catch` is available on both hooks.
+- **Decision**: pseudonymize `args` at `command.run` and a skill's `text` at `skill.prompt` with
+  the engine's `prompt`, and refuse the command or skill when it cannot be checked.
+  `prompt.submit` keeps only the warm-up gate for a slash-command line. Any path not covered is listed as a residual
   risk in `docs/coverage.md`.
 
 **Fail-open defaults** (all confirmed):

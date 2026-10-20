@@ -3,6 +3,7 @@ import type { EngineInterface, On } from 'claude-code'
 import { runEngine, TIMEOUTS } from './engine'
 import { checkPreconditions } from './preconditions'
 import { clearReveal, state } from './state'
+import { startWarmups } from './warmup'
 
 async function loadTable($: EngineInterface, id: string): Promise<void> {
   try {
@@ -16,7 +17,10 @@ async function start($: EngineInterface): Promise<void> {
   const id = await $.session.id()
   state.sessionId = id
   clearReveal()
-  if ((await checkPreconditions($)) === null) await loadTable($, id)
+  if ((await checkPreconditions($)) === null) {
+    await loadTable($, id)
+    startWarmups($)
+  }
 }
 
 /**
