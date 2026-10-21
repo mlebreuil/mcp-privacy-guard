@@ -32,6 +32,7 @@ an operator exemption of one server by name.
 - [`docs/coverage.md`](docs/coverage.md): what is sent to the model provider, what is covered,
   blocked or not covered, and the residual risks.
 - [`docs/profiles.md`](docs/profiles.md): writing a profile for a server.
+- [`docs/live-test.md`](docs/live-test.md): the manual check in a real Claude Code session.
 - `specs/001-mcp-pseudonymization/`: specification, plan, contracts and tasks.
 
 ## Development
