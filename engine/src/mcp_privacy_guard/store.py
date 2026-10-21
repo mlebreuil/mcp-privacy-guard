@@ -51,6 +51,54 @@ CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 """
 
 Row = dict[str, Any]
+_SIMPLE = re.compile(r"[\w-]+")
+
+
+class NameIndex:
+    """The session's known names (not common words) for whole-token search in free text.
+
+    A name made only of word characters and hyphens can match only a whole run of such
+    characters, so it is looked up in a set. Any other name (a space, a dot...) goes into one
+    alternation, longest first, rebuilt only when such a name is added.
+    """
+
+    def __init__(self) -> None:
+        self.simple: set[str] = set()
+        self.complex: set[str] = set()
+        self._pattern: re.Pattern[str] | None = None
+        self._dirty = False
+
+    def add(self, real: str) -> None:
+        if _SIMPLE.fullmatch(real):
+            self.simple.add(real)
+        elif real not in self.complex:
+            self.complex.add(real)
+            self._dirty = True
+
+    def _complex_pattern(self) -> re.Pattern[str] | None:
+        if self._dirty:
+            reals = sorted(self.complex, key=len, reverse=True)
+            self._pattern = (
+                re.compile(r"(?<![\w-])(?:" + "|".join(re.escape(r) for r in reals) + r")(?![\w-])")
+                if reals
+                else None
+            )
+            self._dirty = False
+        return self._pattern
+
+    def spans(self, text: str) -> list[tuple[int, int]]:
+        """Non-overlapping spans of known names in `text`; a longer name wins over a shorter."""
+        found: list[tuple[int, int]] = []
+        pattern = self._complex_pattern()
+        if pattern is not None:
+            found = [m.span() for m in pattern.finditer(text)]
+        if self.simple:
+            for match in _SIMPLE.finditer(text):
+                if match.group(0) in self.simple:
+                    start, end = match.span()
+                    if all(end <= s or start >= e for s, e in found):
+                        found.append((start, end))
+        return sorted(found)
 
 
 def check_sid(sid: str) -> str:
@@ -109,6 +157,7 @@ class Store:
         self.key = key
         self._db = db
         self.folder = folder
+        self._name_index: NameIndex | None = None
 
     # -- lifecycle ---------------------------------------------------------------------
 
@@ -332,6 +381,18 @@ class Store:
             "INSERT OR IGNORE INTO names (real, kind, server, common_word) VALUES (?, ?, ?, ?)",
             (real, kind, server, int(common_word)),
         )
+        if self._name_index is not None and not common_word:
+            self._name_index.add(real)
+
+    def name_index(self) -> NameIndex:
+        """Loaded once per open store; names added later through `add_name` are kept in it."""
+        if self._name_index is None:
+            index = NameIndex()
+            rows = self._db.execute("SELECT real FROM names WHERE common_word = 0").fetchall()
+            for row in rows:
+                index.add(str(row["real"]))
+            self._name_index = index
+        return self._name_index
 
     def names(self) -> list[Row]:
         return [dict(r) for r in self._db.execute("SELECT * FROM names").fetchall()]

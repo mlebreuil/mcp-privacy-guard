@@ -127,3 +127,21 @@ that same IP, not an inverted one (research R15).
 
 Add a public IP to `keep.values` (for example `9.9.9.9`) and ask about it: the model sees
 `9.9.9.9`, and a tool call with it reaches the server unchanged.
+
+## Results
+
+Run 2026-10-20 (engine at the Phase 9 state, Claude Code declarations 2.1.304).
+
+| Step | Result |
+|---|---|
+| §1 `uv sync && uv run pytest` | pass: 495 tests, `-m leak` 200, `-m bench` 3 |
+| §1 `status`, `begin`, `prompt` ×2, `end`, `prompt` after `end`, `begin qs2`, `check-profile` | pass: `session: none` then `live`; 2 replacements; same text twice in `qs1`; `sessions/` empty after `end`; `prompt --session qs1` exits 3; `qs2` gives other stand-ins; `panos-mcp` profile valid. Run with `uv run` instead of `uv tool install --editable .` |
+| §2 `claude plugin validate plugin` / `claude plugin test plugin` | pass (one warning: no `author` in the manifest) / 127 pass, 0 fail |
+| §3, §3b (session with `panos-mcp`, reveal, `/clear`, `--resume`, `kill -9`) | **not run**: needs a live Claude Code terminal session |
+| §4 (generic server, profile example, broken profile) | **not run** live; the same checks run in `engine/tests/leak/test_generic_leak.py` and `test_generic_profile.py` (pass) |
+| §5 (failure paths) | **not run** live; covered by the plugin tests (`preconditions`, `prompt`, `mcp`, `warmup`) |
+| §6 (exemption, keep list) | **not run** live; covered by `operator.test.ts`, `test_operator_lists.py`, `test_fixed_entries.py` (pass) |
+
+Still to verify live (T102, T011): the status line, toasts, `ui.render` reveal and highlight on
+the terminal, `/privacy-guard` output, `/clear` and `--resume` behaviour and whether `--resume`
+keeps the session id, and that `command.run` fork commands reach the hooks.

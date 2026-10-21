@@ -18,23 +18,6 @@ from mcp_privacy_guard.store import Store
 
 _PUNCT = ".,;:!?()[]{}<>\"'`*"
 _PARTS = re.compile(r"[=:|]")  # not - _ /: a hyphenated token is a name unless it is known
-_NAMES: dict[int, tuple[int, re.Pattern[str] | None]] = {}
-
-
-def name_pattern(store: Store) -> re.Pattern[str] | None:
-    """Whole-token, case-sensitive pattern of the session's known names (not common words)."""
-    rows = store.names()
-    cached = _NAMES.get(id(store))
-    if cached is not None and cached[0] == len(rows):
-        return cached[1]
-    reals = sorted({r["real"] for r in rows if not r["common_word"]}, key=len, reverse=True)
-    pattern = None
-    if reals:
-        pattern = re.compile(
-            r"(?<![\w-])(?:" + "|".join(re.escape(r) for r in reals) + r")(?![\w-])"
-        )
-    _NAMES[id(store)] = (len(rows), pattern)
-    return pattern
 
 
 def _plain(part: str, profile: Profile) -> bool:
@@ -81,12 +64,9 @@ def mixed(text: str, *, store: Store, profile: Profile, config: Config, server: 
         return hide_block(text, store=store)
 
     spans: list[tuple[int, int, str]] = list(shapes.find_embedded(text))
-    names = name_pattern(store)
-    if names is not None:
-        for match in names.finditer(text):
-            start, end = match.span()
-            if all(end <= s or start >= e for s, e, _ in spans):
-                spans.append((start, end, "NAME"))
+    for start, end in store.name_index().spans(text):
+        if all(end <= s or start >= e for s, e, _ in spans):
+            spans.append((start, end, "NAME"))
     spans.sort()
 
     rest, last = [], 0
