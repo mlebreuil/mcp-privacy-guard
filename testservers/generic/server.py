@@ -29,6 +29,11 @@ def build() -> MCPServer:
 
     for tool_name in results.TOOLS:
         register(tool_name)
+
+    @server.tool(name="echo", description="Returns the value it received (live check 17).")
+    def echo(value: str) -> str:
+        return f"received: {value}"
+
     return server
 
 

@@ -95,6 +95,10 @@ function show($: EngineInterface, reason: string | null): void {
 
 async function run($: EngineInterface): Promise<string | null> {
   const id = await $.session.id()
+  // A new id after another one in this process is a /clear, not a resume (live check 12): the host
+  // may still report the old turns for it.
+  if (state.priorId !== null && state.priorId !== id) state.clearedIds.add(id)
+  state.priorId = id
   const version = (await $.session.version()).version
   const old = isOldVersion(version)
   if (old === null || old) {
@@ -132,13 +136,15 @@ async function run($: EngineInterface): Promise<string | null> {
     case 'live':
       return null
     case 'none': {
-      let turns: number
-      try {
-        turns = await $.session.turns()
-      } catch {
-        return REASON.resumed
+      if (!state.clearedIds.has(id)) {
+        let turns: number
+        try {
+          turns = await $.session.turns()
+        } catch {
+          return REASON.resumed
+        }
+        if (turns > 0) return REASON.resumed
       }
-      if (turns > 0) return REASON.resumed
       try {
         await runEngine($, ['begin', '--session', id, '--servers', list])
       } catch (error) {
@@ -178,7 +184,16 @@ export function blockedReason(): string | null {
   return state.blockReason ?? (state.ready ? null : 'privacy guard: not started; restart Claude Code')
 }
 
-/** An engine reply of exit 3 later in the session: the folder was swept or deleted. */
-export function onEngineExit3($: EngineInterface): void {
-  show($, REASON.expired)
+/** What an engine reply of exit 3 means: a swept or deleted folder, or a store that cannot be used. */
+export function exit3Reason(code: unknown): string {
+  return code === 'too-permissive' || code === 'unreadable' || code === 'in-git-tree'
+    ? REASON.store
+    : REASON.expired
+}
+
+/** An engine reply of exit 3 later in the session; returns the reason now shown. */
+export function onEngineExit3($: EngineInterface, code?: unknown): string {
+  const reason = exit3Reason(code)
+  show($, reason)
+  return reason
 }

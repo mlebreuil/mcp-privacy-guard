@@ -11,3 +11,4 @@ node_modules/
 *.sqlite-shm
 secret.key
 plugin/.claude-plugin/types/
+temp/

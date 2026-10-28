@@ -30,6 +30,10 @@ path = "devices[].state"
 enum = ["connected", "disconnected", "unknown"]
 
 [[fields]]
+path = "devices[].environment"
+enum = ["prod", "preprod", "lab"]
+
+[[fields]]
 path = "rules[].action"
 enum = ["allow", "deny", "drop"]
 

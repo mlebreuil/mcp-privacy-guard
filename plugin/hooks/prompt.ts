@@ -1,7 +1,7 @@
 // The user's question: real values become the stand-ins the tool results use (FR-017..FR-020).
 import type { EngineInterface, On } from 'claude-code'
 import { EngineError, runEngine } from './engine'
-import { blockedReason, onEngineExit3, REASON } from './preconditions'
+import { blockedReason, onEngineExit3 } from './preconditions'
 import { invalidateRows } from './reveal'
 import { currentSession } from './session'
 import { state } from './state'
@@ -14,8 +14,7 @@ const NOT_CHECKED = 'privacy guard: question not checked'
 /** What the user reads when the engine could not check a question or a command. */
 export function dropText($: EngineInterface, error: unknown): string {
   if (error instanceof EngineError && error.exitCode === 3) {
-    onEngineExit3($)
-    return REASON.expired
+    return onEngineExit3($, error.code)
   }
   return gateMessage(error) ?? NOT_CHECKED
 }

@@ -180,6 +180,14 @@ path = "**.ha"
 enum = ["active", "passive", "active-primary", "active-secondary", "standalone"]
 
 [[fields]]
+path = "**.ha.local_state"
+enum = ["standalone", "active", "passive", "active-primary", "active-secondary", "suspended", "non-functional", "tentative", "initial", "disabled"]
+
+[[fields]]
+path = "**.ha.peer_state"
+enum = ["standalone", "active", "passive", "active-primary", "active-secondary", "suspended", "non-functional", "tentative", "initial", "disabled", "unknown"]
+
+[[fields]]
 path = "**.config_sync"
 enum = ["in_sync", "out_of_sync", "unknown"]
 

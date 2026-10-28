@@ -12,6 +12,9 @@ from typing import Any
 
 SEED_PATH = Path(__file__).parent / "seed.json"
 BIG_BYTES = 3 * 1024 * 1024
+# Not identifying, so not in seed.json (the leak tests forbid every seed value). The default
+# profile hides them; the example profile lists them as an enum and keeps them readable.
+ENVIRONMENTS = ["prod", "preprod", "lab"]
 
 
 def seed() -> dict[str, Any]:
@@ -47,6 +50,7 @@ def devices_data() -> dict[str, Any]:
                 "description": s["descriptions"][i % len(s["descriptions"])],
                 "state": "connected",
                 "severity": "info",
+                "environment": ENVIRONMENTS[i % len(ENVIRONMENTS)],
                 "port": 443,
                 "last_seen": "2026-10-20T10:15:00Z",
             }

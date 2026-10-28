@@ -63,6 +63,14 @@ def test_safe_forms_and_built_in_vocabulary_pass() -> None:
     assert walk({"v": values}) == {"v": values}
 
 
+def test_connection_states_pass_as_values_and_common_schema_words_as_keys() -> None:
+    # live check 8: `"state": "connected"` and a `severity` key came back as stand-ins
+    values = ["connected", "disconnected", "reachable", "unreachable", "online", "offline"]
+    assert walk({"state": values}) == {"state": values}
+    keys = {"severity": 1, "state": 2, "status": 3, "last_seen": 4}
+    assert walk(keys) == keys
+
+
 def test_a_single_unknown_token_is_a_name_and_text_is_hidden() -> None:
     out = walk({"x": "fw-paris-01", "y": "Gateway for the Paris payroll office"})
     assert NAME.match(out["x"])

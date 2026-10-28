@@ -81,12 +81,34 @@ test('a server that takes over 120 s in total fails with a timeout', async ($, o
   expect(h.called('warmup').at(-1)?.argv).toEqual(expect.arrayContaining(['--state', 'failed', '--reason', 'timeout']))
 })
 
-test('a missing tool fails with tool-missing', async ($, on) => {
+test('a tool the host does not list still warms up when the call succeeds', async ($, on) => {
+  // live check 3: whether the tool list holds MCP tools is the host's business; the call decides
   const { clock, h } = setup(on, { toolNames: [] })
   await $.session.start(SESSION_START)
   await clock.settle()
+  expect(h.mcpCalls.map(c => c.tool)).toEqual(['list_device_groups', 'get_security_rules'])
+  expect(h.called('warmup').at(-1)?.argv).toEqual(expect.arrayContaining(['--state', 'complete']))
+})
+
+test('a call that fails for a tool that is not listed fails with tool-missing', async ($, on) => {
+  const { clock, h } = setup(on, {
+    toolNames: [],
+    mcpAnswer: () => ({ content: [{ type: 'text', text: 'unknown tool' }], isError: true }),
+  })
+  await $.session.start(SESSION_START)
+  await clock.settle()
   expect(h.called('warmup').at(-1)?.argv).toEqual(expect.arrayContaining(['--state', 'failed', '--reason', 'tool-missing']))
-  expect(h.mcpCalls).toEqual([])
+})
+
+test('/privacy-guard shows the warm-up state the engine holds now, not the one at start', async ($, on) => {
+  const { clock } = setup(on)
+  await $.session.start(SESSION_START)
+  await clock.settle()
+  const { text } = await ($.command as unknown as { run: (i: unknown) => Promise<{ text?: string }> }).run({
+    command: 'privacy-guard',
+    args: '',
+  })
+  expect(text).toMatch(/generic[^\n]*warm-up complete/)
 })
 
 test('a tool error fails with tool-error', async ($, on) => {
@@ -149,4 +171,41 @@ test('a server that connects later is found at the next hook and warmed up', asy
   await clock.settle()
   expect(h.mcpCalls).toEqual([{ server: 'late', tool: 'list_device_groups', args: {} }])
   expect(h.called('warmup').at(-1)?.argv).toEqual(expect.arrayContaining(['--server', 'late', '--state', 'complete']))
+})
+
+// Live check 16: after a failed warm-up, every further question stays blocked and nothing silently
+// runs the warm-up again. The engine holds the gate; the plugin must not reset it.
+test('a failed warm-up keeps blocking every question and is not retried by itself', async ($, on) => {
+  const gate = (): { exit: number; out: unknown } | { out: unknown } => {
+    if (h.warm.generic === 'failed') {
+      return {
+        exit: 4,
+        out: { error: { code: 'warmup-failed', servers: ['generic'], reason: 'tool-missing' } },
+      }
+    }
+    return { out: { text: 'q', replacements: [], warnings: [], table: { rev: 0, entries: [] } } }
+  }
+  const { clock, h } = setup(on, {
+    mcpAnswer: () => ({ content: [{ type: 'text', text: 'unknown tool' }], isError: true }),
+    toolNames: [],
+    engine: { prompt: gate },
+  })
+  await $.session.start(SESSION_START)
+  await clock.settle()
+  expect(h.warm.generic).toBe('failed')
+  const submit = () =>
+    ($.prompt as unknown as { submit: (i: unknown) => Promise<{ drop?: string }> }).submit({
+      text: 'which rules allow traffic to the web servers?',
+      wait: false,
+      origin: { kind: 'composer' },
+    })
+  const first = await submit()
+  await clock.settle()
+  const second = await submit()
+  await clock.settle()
+  expect(first.drop).toContain('failed (tool-missing)')
+  expect(second.drop).toContain('failed (tool-missing)')
+  expect(h.submitted).toEqual([])
+  const runs = h.called('warmup').filter(c => c.argv.includes('running'))
+  expect(runs.length).toBe(1)
 })

@@ -1,3 +1,4 @@
+import type { Engine } from 'claude-code/testing'
 import { expect, test } from 'claude-code/testing'
 import { register } from './register'
 import { RECOGNISE, SESSION_START, SID, fakeHost } from './test-support'
@@ -45,6 +46,39 @@ test('a changed session id (a /clear) begins a new session before the next hook 
   const begins = h.called('begin').map(c => c.argv[c.argv.indexOf('--session') + 1])
   expect(begins).toEqual([SID, 'after-clear'])
 })
+
+// Live check 12: after /clear the host's turn count may still be above 0 (or fail). A /clear is not
+// a resume, so the new session must begin; the guard must not block it as "ended session".
+const callRead = ($: Engine) =>
+  ($.tool as unknown as { call: (i: unknown) => Promise<unknown> }).call({
+    tool: 'Read',
+    tool_use_id: 't1',
+    file_path: '/proj/README.md',
+  })
+
+for (const turns of [3, 'throw' as const]) {
+  test(`a /clear begins a new session even when the host reports turns: ${turns}`, async ($, on) => {
+    const h = fakeHost(on)
+    await $.session.start(SESSION_START)
+    h.turns = turns
+    h.sessionId = 'after-clear'
+    await callRead($)
+    const begins = h.called('begin').map(c => c.argv[c.argv.indexOf('--session') + 1])
+    expect(begins).toEqual([SID, 'after-clear'])
+    expect(h.status()).toContain('active')
+  })
+
+  test(`a /clear lifts the block of a resumed conversation (turns: ${turns})`, async ($, on) => {
+    const h = fakeHost(on, { turns })
+    await $.session.start(SESSION_START)
+    expect(h.status()).toContain('ended session')
+    h.sessionId = 'after-clear'
+    await callRead($)
+    const begins = h.called('begin').map(c => c.argv[c.argv.indexOf('--session') + 1])
+    expect(begins).toEqual(['after-clear'])
+    expect(h.status()).toContain('active')
+  })
+}
 
 test('session.start loads the server map, the recognition pattern and the table', async ($, on) => {
   const h = fakeHost(on, {

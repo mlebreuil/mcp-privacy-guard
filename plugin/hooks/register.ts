@@ -11,6 +11,8 @@ import { registerStatus } from './status'
 export const register: Register = (on, options) => {
   const path = options.enginePath
   state.config.enginePath = typeof path === 'string' && path !== '' ? path : 'mcp-privacy-guard'
+  state.priorId = null
+  state.clearedIds.clear()
   registerSession(on)
   registerGuard(on)
   registerMcp(on)

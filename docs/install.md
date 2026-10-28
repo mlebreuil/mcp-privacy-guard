@@ -25,6 +25,20 @@ mcp-privacy-guard` or `pipx install mcp-privacy-guard` will do the same.
 `<home>` is `~/.config/mcp-privacy-guard` unless `MCP_PRIVACY_GUARD_HOME` is set. Its sessions
 folder holds one folder per live session and is created with owner-only permissions.
 
+Permissions the engine creates and then requires (it refuses to use the store otherwise):
+
+| Path | Mode |
+|---|---|
+| `<home>`, `<home>/store`, `<home>/store/sessions`, each `<session>/` folder | `0700` (`drwx------`) |
+| `<session>/secret.key`, `<session>/mapping.sqlite` | `0600` (`-rw-------`) |
+
+Any group or other bit on a session folder, its `secret.key` or its `mapping.sqlite`, or on
+`<home>/store`, blocks the session (`too-permissive`). The engine creates all of these itself, so
+you only need to act when you point `MCP_PRIVACY_GUARD_HOME` at an existing folder: make it yours
+(`chmod 700 "$MCP_PRIVACY_GUARD_HOME"`), and keep it out of any git work tree that does not ignore
+it (`in-git-tree`) and off network or synced drives. Use the same value in every terminal and in
+the Claude Code process.
+
 ## 2. Install the plugin
 
 Load the plugin folder:

@@ -122,4 +122,7 @@ Every hook marked † is registered with
 - A slash command while a warm-up is pending → dropped.
 - `session: "none"` with `turns()` > 0, or a failing `turns()` → questions dropped, MCP calls
   denied, with the `/clear` hint (FR-033).
-- An engine exit 3 mid-session → questions dropped, MCP calls denied, "session expired".
+- An engine exit 3 mid-session → questions dropped, MCP calls denied. The message follows the
+  error code: `too-permissive`, `unreadable` or `in-git-tree` → "the session store is unusable;
+  start a new conversation (/clear)" (fix the folder's permissions or location); any other
+  code (`session-missing`) → "session expired" (live check 15a).

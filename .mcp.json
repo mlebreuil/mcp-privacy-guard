@@ -1,0 +1,26 @@
+{
+  "mcpServers": {
+    "generic": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--project",
+        "engine",
+        "python",
+        "testservers/generic/server.py"
+      ]
+    },
+    "panorama-demo": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--project",
+        "../panos-mcp",
+        "panos-mcp"
+      ],
+      "env": {
+        "PANOS_MCP_SAMPLES_SCENARIO": "baseline"
+      }
+    }
+  }
+}

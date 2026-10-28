@@ -14,6 +14,9 @@ export type TableEntry = { standin: string; real: string; kind: string }
 export const state = {
   /** The session the reveal table and the checks belong to; null before the first check. */
   sessionId: null as string | null,
+  /** The last session id this process saw, and the ids that followed another one (a /clear). */
+  priorId: null as string | null,
+  clearedIds: new Set<string>(),
   /** true only after every precondition passed in this process; a failed start leaves it false. */
   ready: false,
   /** Why the guard blocks questions and protected results; null when it is active. */

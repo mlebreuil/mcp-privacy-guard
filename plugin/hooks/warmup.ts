@@ -64,6 +64,15 @@ async function fail($: EngineInterface, id: string, alias: string, reason: strin
   $.ui.toast(text)
 }
 
+async function isListed($: EngineInterface, alias: string, tool: string): Promise<boolean> {
+  try {
+    const name = `mcp__${normalise(alias)}__${tool}`
+    return (await $.tool.list()).some(listed => listed.name === name)
+  } catch {
+    return true
+  }
+}
+
 async function runServer($: EngineInterface, alias: string, info: ServerInfo): Promise<void> {
   const id = state.sessionId ?? ''
   const entries = info.warmup ?? []
@@ -74,15 +83,14 @@ async function runServer($: EngineInterface, alias: string, info: ServerInfo): P
     return fail($, id, alias, 'tool-error')
   }
   for (const entry of entries) {
-    const available = (await $.tool.list()).map(tool => tool.name)
-    if (!available.includes(`mcp__${normalise(alias)}__${entry.tool}`)) {
-      return fail($, id, alias, 'tool-missing')
-    }
     const left = SERVER_MS - ((await $.clock.now()) - started)
     if (left <= 0) return fail($, id, alias, 'timeout')
     const called = await within($, Math.min(CALL_MS, left), $.mcp.call(alias, entry.tool, entry.args))
-    if (!called.ok) return fail($, id, alias, called.reason === 'timeout' ? 'timeout' : 'tool-error')
-    if (called.value.isError) return fail($, id, alias, 'tool-error')
+    if (!called.ok && called.reason === 'timeout') return fail($, id, alias, 'timeout')
+    if (!called.ok || called.value.isError) {
+      // the host's tool list may leave MCP tools out, so it only names the reason of a failure
+      return fail($, id, alias, (await isListed($, alias, entry.tool)) ? 'tool-error' : 'tool-missing')
+    }
     try {
       await runEngine($, ['learn', '--session', id, '--server', alias, '--tool', entry.tool], {
         result: called.value,
@@ -126,9 +134,9 @@ export function startWarmups($: EngineInterface): void {
 }
 
 /** A server that connected after the last listing is warmed up at the next hook. */
-export async function refreshServers($: EngineInterface): Promise<void> {
+export async function refreshServers($: EngineInterface, force = false): Promise<void> {
   const listed = [...new Set(await connectedServers($))].sort().join(',')
-  if (listed === state.connected) return
+  if (listed === state.connected && !force) return
   const id = state.sessionId ?? ''
   const reply = await runEngine($, ['status', '--session', id, '--servers', listed])
   state.connected = listed

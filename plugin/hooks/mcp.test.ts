@@ -24,7 +24,7 @@ test('a protected MCP result is the engine\'s pseudonymized result', async ($, o
   await $.session.start(SESSION_START)
   const out = await callMcp($)
   expect(out.deny).toBeUndefined()
-  expect(out.result).toEqual(MASKED)
+  expect(out.result).toBe('PSEUDONYMIZED') // never an object: the host refuses one (live check 3)
   const [call] = h.called('result')
   expect(call?.argv).toEqual(
     expect.arrayContaining(['--session', SID, '--server', 'generic', '--tool', 'list']),
@@ -133,6 +133,16 @@ test('withheld non-text items are noted for the model', async ($, on) => {
   expect(out.context).toEqual(['privacy guard: 2 non-text item(s) withheld'])
 })
 
+test('an exit 3 for a too open store says the store is unusable', async ($, on) => {
+  const h = fakeHost(on, {
+    engine: { result: () => ({ exit: 3, out: { error: { code: 'too-permissive' } } }) },
+  })
+  await $.session.start(SESSION_START)
+  await callMcp($)
+  expect(h.status()).toContain('the session store is unusable')
+  expect(h.status()).not.toContain('expired')
+})
+
 test('an exempt server\'s result is returned unchanged', async ($, on) => {
   const h = fakeHost(on, { servers: { generic: { exempt: true } } })
   await $.session.start(SESSION_START)
@@ -210,4 +220,65 @@ test("an exempt server still gets its arguments translated", async ($, on) => {
   const out = await callMcp($, 'mcp__generic__list', { query: 'n-abcdef' })
   expect(h.toolInputs.at(-1)).toMatchObject({ query: 'REAL-NAME' })
   expect(out.result).toEqual(REAL)
+})
+
+// Live check 8: the host's `next(e).result` for an MCP tool is typed `unknown`. Whatever form it
+// has, the engine must get an object with `content`, or it refuses (bad-json) and the result is lost.
+const forms: [string, unknown, unknown, unknown][] = [
+  [
+    'a bare string',
+    'REAL 10.1.2.15',
+    { content: [{ type: 'text', text: 'REAL 10.1.2.15' }], isError: false },
+    'PSEUDONYMIZED',
+  ],
+  [
+    'a list of content blocks',
+    [{ type: 'text', text: 'REAL 10.1.2.15' }],
+    { content: [{ type: 'text', text: 'REAL 10.1.2.15' }], isError: false },
+    [{ type: 'text', text: 'PSEUDONYMIZED' }],
+  ],
+  [
+    'an object with structured content only',
+    { structuredContent: { ip: '10.1.2.15' } },
+    { content: [], structuredContent: { ip: '10.1.2.15' }, isError: false },
+    'PSEUDONYMIZED',
+  ],
+  [
+    'nothing but the joined text',
+    undefined,
+    { content: [{ type: 'text', text: 'ran' }], isError: false },
+    'PSEUDONYMIZED',
+  ],
+]
+
+for (const [label, shape, expected, returned] of forms) {
+  test(`the engine gets an object result when the host returns ${label}`, async ($, on) => {
+    const h = fakeHost(on, { mcpResult: () => ({ result: shape }) })
+    await $.session.start(SESSION_START)
+    const out = await callMcp($)
+    expect(out.deny).toBeUndefined()
+    // the host takes a string, a list of blocks or nothing as an MCP result, never `{ content }`
+    expect(out.result).toEqual(returned)
+    expect(h.called('result')[0]?.stdin).toEqual({ result: expected, is_error: false })
+  })
+}
+
+test('an errored result of any form reaches the engine as an object and goes out as a denial', async ($, on) => {
+  const h = fakeHost(on, {
+    mcpResult: () => ({ result: 'Object web-srv-01 not found', isError: true }),
+  })
+  await $.session.start(SESSION_START)
+  const out = await callMcp($)
+  expect(out.deny).toBe('PSEUDONYMIZED')
+  expect(h.called('result')[0]?.stdin).toEqual({
+    result: { content: [{ type: 'text', text: 'Object web-srv-01 not found' }], isError: true },
+    is_error: true,
+  })
+})
+
+test('a refusal by the engine names its code, never a value', async ($, on) => {
+  fakeHost(on, { engine: { result: () => ({ exit: 2, out: { error: { code: 'bad-json' } } }) } })
+  await $.session.start(SESSION_START)
+  const out = await callMcp($)
+  expect(out.deny).toBe('privacy guard: result withheld by privacy guard (bad-json)')
 })

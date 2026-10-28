@@ -12,6 +12,7 @@ SAFE_WORDS = frozenset(
     true false yes no none null nil on off
     allow deny drop permit block reject accept reset
     enabled disabled up down active inactive ok failed success failure pending
+    connected disconnected reachable unreachable online offline
     tcp udp icmp icmpv6 sctp gre esp ah ipv4 ipv6
     http https ssh telnet ftp sftp tftp smtp imap pop3 dns ntp snmp ldap ldaps radius syslog
     kerberos rdp sip tls ssl
@@ -32,7 +33,7 @@ KEY_WORDS = frozenset(
     """
     ip ips mac url uri id ids fqdn hostname serial vsys dns ntp cpu ram os sw hw ha vpn nat acl
     vlan src dst dport sport proto app rule rules zone zones tag tags uuid cidr asn mtu ttl ssl
-    tls ssh http https tcp udp icmp api sku vm vms db dc lan wan dmz
+    tls ssh http https tcp udp icmp api sku vm vms db dc lan wan dmz severity
     """.split()
 )
 

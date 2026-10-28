@@ -109,6 +109,19 @@ questions or the display.
 - A hook cannot return `isError` (set by core only). **Decision**: an errored MCP result is
   never replaced with `{ result }`; its pseudonymized error text goes out as
   `{ deny: <text> }`, which the model reads as an error. A live check stays with T054.
+- **Corrected after live check 8 (2026-10-25)**: the host types `next(e).result` of an MCP tool as
+  `unknown`, so the plugin no longer assumes the `McpToolResult` object. `asMcpResult` (mcp.ts)
+  rebuilds `{ content, isError }` from a string, a bare list of blocks, an object with only
+  `structuredContent`, or the joined `text`; the engine refuses anything but an object (`bad-json`).
+  A withheld result now names the engine's error code. The warm-up no longer reads `$.tool.list()`
+  before a call (the host may leave MCP tools out of it); it lists only to name the reason of a
+  failed call (`tool-missing` or `tool-error`). `/privacy-guard` re-reads the engine's state each
+  time.
+- **Verified live (2026-10-26, check 1)**: the host refuses a hook's `{ result: { content, isError } }`
+  for an MCP tool: "the result was an object, and the tool expected a string, an array or nothing".
+  `asHostResult` (mcp.ts) therefore returns the text of the pseudonymized blocks as a string, or the
+  list of blocks when the host handed over a list. The `McpToolResult` object is only what the
+  plugin sends to the engine, never what it returns to the host.
 - `tool.call` carries only the wire name `mcp__<server>__<tool>`: no server field
   (`McpServerProvenance` exists on classic hook inputs only). The server name is found with
   `$.session.usage({ breakdown: 'summary' })`, whose `context.breakdown.mcpTools` lists
@@ -551,6 +564,16 @@ session." Then: "All stand-ins should be only valid during one session. No persi
   carries `resume`, "what `claude --resume` takes to return to it", so the id may differ
   after a resume. Whether `--resume` keeps the original session id is still open. The rule
   holds either way, because the old folder is deleted at the old session's end.
+
+- **Corrected after live check 12 (2026-10-28)**: `/clear` does give a new session id (a new
+  transcript file starting with the `/clear` command), but `turns()` is **not** 0 for it, or
+  fails, so the rule above blocked every conversation after a `/clear` ("ended session") and
+  no new session folder was created. A `/clear` is not a resume. **Decision**: the plugin
+  remembers the last session id this process saw; a different id after another one is a
+  `/clear` and `begin` runs without reading `turns()`. `turns()` still decides for the first
+  id of a process, so `--resume` stays blocked and a later `/clear` lifts the block. Residual
+  case: a conversation switched to inside a running process (not by `/clear`) is also begun
+  with new stand-ins; the old stand-ins in its history stay unrevealed (no real value is sent).
 
 ## R15. Values that reach the model unchanged (analysis H1, constitution IV)
 

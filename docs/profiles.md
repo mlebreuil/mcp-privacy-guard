@@ -133,6 +133,10 @@ path = "devices[].state"
 enum = ["connected", "disconnected", "unknown"]
 
 [[fields]]
+path = "devices[].environment"
+enum = ["prod", "preprod", "lab"]
+
+[[fields]]
 path = "rules[].action"
 enum = ["allow", "deny", "drop"]
 
@@ -146,9 +150,10 @@ tools = ["keyed"]
 keys = "keep"
 ```
 
-1. Run `list_devices` with no profile. `state: "connected"` comes back as an `n-…` stand-in.
+1. Run `list_devices` with no profile. `environment: "prod"` comes back as an `n-…` stand-in (the
+   built-in vocabulary knows states such as `connected`, but not your own labels).
 2. Copy the file to `<home>/profiles/generic.toml` and run `check-profile` on it.
-3. Run `list_devices` again. `state` and `action` are readable; names, addresses, host names and
+3. Run `list_devices` again. `environment` is readable (and so are `state` and `action`, which the built-in vocabulary already knows); names, addresses, host names and
    descriptions are still stand-ins. The tests in
    `engine/tests/leak/test_generic_profile.py` assert that no seed value leaks with this profile
    and that it produces fewer `n-…` stand-ins than the default.

@@ -142,6 +142,14 @@ Run 2026-10-20 (engine at the Phase 9 state, Claude Code declarations 2.1.304).
 | §5 (failure paths) | **not run** live; covered by the plugin tests (`preconditions`, `prompt`, `mcp`, `warmup`) |
 | §6 (exemption, keep list) | **not run** live; covered by `operator.test.ts`, `test_operator_lists.py`, `test_fixed_entries.py` (pass) |
 
-Still to verify live (T102, T011): the status line, toasts, `ui.render` reveal and highlight on
-the terminal, `/privacy-guard` output, `/clear` and `--resume` behaviour and whether `--resume`
-keeps the session id, and that `command.run` fork commands reach the hooks.
+## Live run, 2026-10-28 (Claude Code 2.1.310, terminal, `scripts/live-test.sh`)
+
+All 18 guided checks pass (table in `live-test-results.md`). Found and fixed on the way: results
+sent to the engine as a non-object (check 3/8), a host that refuses an object result (check 1),
+a warm-up that never left `not-started` (check 2/4), HA states shown as stand-ins, the
+`/clear` block "ended session" because `turns()` is not 0 after `/clear` (check 12), and a loose
+store reported as "session expired" instead of "store unusable" (check 15a).
+
+Not run live: check 15d (VS Code extension; covered by the unit test for the terminal surface),
+whether `--resume` keeps the original session id, and the forking slash command (`command.run`).
+Reasons recorded in `live-test-results.md` (T011 facts).

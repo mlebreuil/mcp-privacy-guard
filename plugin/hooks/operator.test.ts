@@ -94,7 +94,7 @@ test('/privacy-guard reports the guard state and each server, with no store valu
   const { text } = await runCommand($)
   expect(text).toContain('active')
   expect(text).toContain('generic')
-  expect(text).toMatch(/generic[^\n]*profile default[^\n]*valid[^\n]*protected[^\n]*warm-up not-started/)
+  expect(text).toMatch(/generic[^\n]*profile default[^\n]*valid[^\n]*protected[^\n]*warm-up (not-started|running|complete|failed)/)
   expect(text).toMatch(/notion[^\n]*exempt/)
   expect(text).not.toContain('SECRET-REAL')
   expect(text).not.toContain('n-abcdef')

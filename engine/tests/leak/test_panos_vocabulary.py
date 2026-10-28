@@ -41,3 +41,22 @@ def test_numbers_and_timestamps_are_unchanged() -> None:
     items = json.loads(run("query_logs"))["items"]
     assert items[0]["dport"] == 443
     assert items[0]["receive_time"] == "2026-10-16T08:59:41"
+
+
+def test_ha_states_of_a_firewall_pair_stay_readable() -> None:
+    # live check 3: `ha` is an object, and `passive` came back as a stand-in
+    profile, _, _ = loader.select_profile("panos", None)
+    pair = {"structuredContent": {"items": [
+        {"serial": "735312590148", "ha": {"local_state": "passive", "peer_serial": "961112851052"}},
+        {"serial": "961112851052", "ha": {"local_state": "active", "peer_state": "suspended"}},
+    ]}}  # fmt: skip
+    out = pseudonymize_result(
+        pair, store=Store.ephemeral(KEY), profile=profile, config=Config(),
+        server="panos", tool="list_managed_devices", is_error=False,
+    )  # fmt: skip
+    first, second = out.result["structuredContent"]["items"]
+    assert first["ha"]["local_state"] == "passive"
+    assert second["ha"]["local_state"] == "active"
+    assert second["ha"]["peer_state"] == "suspended"
+    assert first["serial"] != "735312590148"  # identifying values are still replaced
+    assert first["ha"]["peer_serial"] != "961112851052"

@@ -12,7 +12,8 @@ writes the results as a markdown table. This document stays the reference.
 
 ```sh
 cd ~/github/mcp-privacy-guard
-export MCP_PRIVACY_GUARD_HOME=$(mktemp -d)/guard   # throwaway store; use it in every terminal
+export MCP_PRIVACY_GUARD_HOME=$PWD/temp/guard     # throwaway store (git-ignored); use it in every terminal
+mkdir -p -m 700 "$MCP_PRIVACY_GUARD_HOME"          # owner-only; see install.md for the required modes
 uv tool install --editable ./engine                # puts mcp-privacy-guard on PATH
 (cd engine && uv sync && uv run pytest -q)         # all green before you start
 ```
@@ -25,12 +26,14 @@ scratch project), with the real value of `$MCP_PRIVACY_GUARD_HOME` in `denyRead`
                "filesystem": { "denyRead": ["<value of MCP_PRIVACY_GUARD_HOME>"] } } }
 ```
 
-Register the servers, changing nothing else in their configuration:
-
-```sh
-claude mcp add generic -- uv run --project engine python testservers/generic/server.py
-claude mcp add panos -e PANOS_MCP_SAMPLES_SCENARIO=<scenario> -- <your panos-mcp command>
-```
+The servers are registered by the `.mcp.json` at the repository root: `generic` (the test
+server) and `panorama-demo` (`panos-mcp` replaying the `baseline` scenario). Both use paths
+relative to the repository root, so `panos-mcp` must be cloned next to this repository
+(`../panos-mcp`) and Claude Code started from the root. Approve the project servers when
+Claude Code asks. If a server of the same name was added earlier with `claude mcp add`, remove
+it (`claude mcp remove <name>`), or the two entries clash. To use another scenario, change
+`PANOS_MCP_SAMPLES_SCENARIO` in `.mcp.json`; to change a server, edit the file and run `/mcp`
+to reconnect.
 
 Start Claude Code **in a terminal**, from the repository root:
 
@@ -42,12 +45,12 @@ claude --plugin-dir plugin
 
 | # | Do | Expect |
 |---|---|---|
-| 1 | Start; type a question at once | status line `loading names (k/n)`; the question is dropped with "loading names for panos, try again in a moment"; then a toast, and `active · 1 protected` |
+| 1 | Start; type a question at once | status line `loading names (k/n)`; the question is dropped with "loading names for panorama-demo, try again in a moment"; then a toast, and `active · 1 protected` |
 | 2 | `/privacy-guard` | the guard state, then each server with profile, profile state, protected/exempt, warm-up state; no real value |
 | 3 | Ask "which rules allow traffic to the web servers?" | real names, highlighted, on screen; `/export` or the transcript file holds only stand-ins (`n-…`, `text-…`) |
 | 4 | Ask a follow-up that needs a second tool call | the answer is right for the real data |
 | 5 | Type a real IP and rule name from the demo data | toast "n value(s) replaced"; your row shows them underlined; the transcript holds stand-ins |
-| 6 | In a second terminal: `mcp-privacy-guard reveal`, paste a transcript line | real values come back (only while the session lives) |
+| 6 | In a second terminal with the same `MCP_PRIVACY_GUARD_HOME` exported, while the Claude Code session is still open: `/export`, copy one sentence with an `n-…` value, then `echo '<sentence>' \| mcp-privacy-guard reveal` (the text goes in on stdin, never as arguments) | real values come back; a stand-in from an ended session gets `⟨?⟩` |
 | 7 | Ask the model to `cat` the store or run `mcp-privacy-guard table`; to edit `.claude/settings.json` | both denied |
 | 8 | Run every generic tool, then `cd engine && uv run python -m tests.tools.scan_transcript <transcript> ../testservers/generic/seed.json` | 0 real values |
 | 9 | Copy `testservers/generic/profile.example.toml` to `$MCP_PRIVACY_GUARD_HOME/profiles/`, restart, rerun | still 0 real values, fewer `n-…`; with broken TOML a toast says the profile is invalid |

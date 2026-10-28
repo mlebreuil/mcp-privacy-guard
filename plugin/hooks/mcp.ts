@@ -39,6 +39,36 @@ function textOf(result: unknown): string {
     .join('\n')
 }
 
+/**
+ * The result as the engine reads it: `{ content, isError }`. The host types an MCP tool's
+ * `result` as `unknown` and `text` is the one field it always sets, so a string, a bare list of
+ * blocks or an object without `content` is rebuilt rather than sent in a form the engine refuses.
+ */
+export function asMcpResult(ran: { result?: unknown; text?: string; isError?: boolean }): Record<string, unknown> {
+  const isError = ran.isError === true
+  const given = ran.result
+  if (Array.isArray(given)) return { content: given, isError }
+  if (typeof given === 'object' && given !== null) {
+    const record = given as Record<string, unknown>
+    if (Array.isArray(record.content)) return { ...record, isError }
+    if (record.structuredContent !== undefined) return { ...record, content: [], isError }
+  }
+  const text = typeof given === 'string' ? given : (ran.text ?? '')
+  return { content: [{ type: 'text', text }], isError }
+}
+
+/**
+ * The pseudonymized result in the form the host takes back. An MCP tool's output is a string, a
+ * list of content blocks or nothing: an object such as `{ content, isError }` is refused ("the
+ * result did not match the tool's output shape", live check 3). A list stays a list; any other
+ * form goes out as the text of the blocks.
+ */
+export function asHostResult(given: unknown, reply: unknown): unknown {
+  const content = (reply as { content?: unknown } | null)?.content
+  const blocks = Array.isArray(content) ? content : []
+  return Array.isArray(given) ? blocks : textOf(reply)
+}
+
 const RESERVED = new Set(['tool', 'tool_use_id', 'agentId', 'consent', 'requestMeta'])
 const AMBIGUOUS =
   'privacy guard: an address in this call is ambiguous; ask the user to state it'
@@ -65,9 +95,10 @@ async function translateArguments(
   )
 }
 
+/** The refusal names the engine's error code (a fixed word, never a value) so a failure explains itself. */
 async function withhold($: EngineInterface, error: unknown): Promise<{ deny: string }> {
-  if (error instanceof EngineError && error.exitCode === 3) onEngineExit3($)
-  return { deny: WITHHELD }
+  if (error instanceof EngineError && error.exitCode === 3) onEngineExit3($, error.code)
+  return { deny: error instanceof EngineError ? `${WITHHELD} (${error.code})` : WITHHELD }
 }
 
 export function registerMcp(on: On): void {
@@ -81,7 +112,7 @@ export function registerMcp(on: On): void {
     try {
       rewritten = await translateArguments($, e as unknown as Record<string, unknown>, server, name)
     } catch (error) {
-      if (error instanceof EngineError && error.exitCode === 3) onEngineExit3($)
+      if (error instanceof EngineError && error.exitCode === 3) onEngineExit3($, error.code)
       const ambiguous = error instanceof EngineError && error.code === 'ambiguous-address'
       return { deny: ambiguous ? AMBIGUOUS : NOT_CHECKED }
     }
@@ -95,7 +126,7 @@ export function registerMcp(on: On): void {
         await runEngine(
           $,
           ['result', '--session', state.sessionId ?? '', '--server', server, '--tool', name, '--exempt'],
-          { result: ran.result },
+          { result: asMcpResult(ran) },
         )
       } catch {
         // exempt data passes anyway: a failure here holds nothing back
@@ -107,7 +138,7 @@ export function registerMcp(on: On): void {
         $,
         ['result', '--session', state.sessionId ?? '', '--server', server, '--tool', name,
          '--since', String(state.reveal.rev)],
-        { result: ran.result, is_error: ran.isError === true },
+        { result: asMcpResult(ran), is_error: ran.isError === true },
       )
       await invalidateRows($, before)
       if (ran.isError === true) {
@@ -116,7 +147,7 @@ export function registerMcp(on: On): void {
       }
       const notices = Array.isArray(reply.notices) ? (reply.notices as string[]) : []
       return {
-        result: reply.result as never,
+        result: asHostResult(ran.result, reply.result) as never,
         ...(notices.length > 0 ? { context: notices.map(n => `privacy guard: ${n}`) } : {}),
       }
     } catch (error) {

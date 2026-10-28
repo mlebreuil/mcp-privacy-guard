@@ -43,7 +43,7 @@ export async function describe($: EngineInterface): Promise<string> {
   const reason = blockedReason()
   if (reason === null) {
     try {
-      await refreshServers($)
+      await refreshServers($, true) // the warm-up states move without the server list changing
     } catch {
       // the last known list is shown
     }

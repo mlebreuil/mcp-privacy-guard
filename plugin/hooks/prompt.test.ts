@@ -55,6 +55,30 @@ for (const [name, engine] of failures) {
   })
 }
 
+// Live check 15a: a store the engine refuses as too open is not an expired session; the user must
+// read how to fix it.
+for (const code of ['too-permissive', 'unreadable', 'in-git-tree']) {
+  test(`an exit 3 with code ${code} says the store is unusable, not that the session expired`, async ($, on) => {
+    const h = fakeHost(on, { engine: { prompt: () => ({ exit: 3, out: { error: { code } } }) } })
+    await $.session.start(SESSION_START)
+    const out = await submit($, REAL)
+    expect(out.drop).toContain('the session store is unusable')
+    expect(out.drop).not.toContain('expired')
+    expect(h.status()).toContain('the session store is unusable')
+    expect(h.submitted).toEqual([])
+  })
+}
+
+test('an exit 3 with code session-missing says the session expired', async ($, on) => {
+  const h = fakeHost(on, {
+    engine: { prompt: () => ({ exit: 3, out: { error: { code: 'session-missing' } } }) },
+  })
+  await $.session.start(SESSION_START)
+  const out = await submit($, REAL)
+  expect(out.drop).toContain('session expired')
+  expect(h.status()).toContain('session expired')
+})
+
 test('a throw in the hook drops the question', async ($, on) => {
   const h = fakeHost(on)
   await $.session.start(SESSION_START)
