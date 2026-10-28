@@ -41,7 +41,9 @@ KEY_WORDS = frozenset(
 @lru_cache(maxsize=1)
 def common_words() -> frozenset[str]:
     lines = _COMMON.read_text(encoding="utf-8").splitlines()
-    return frozenset(line.strip().lower() for line in lines if line.strip())
+    return frozenset(
+        line.strip().lower() for line in lines if line.strip() and not line.startswith("#")
+    )
 
 
 def is_safe_word(word: str) -> bool:
