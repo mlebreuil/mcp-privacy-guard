@@ -2,6 +2,10 @@
   "name": "mcp-privacy-guard",
   "version": "0.1.0",
   "description": "Pseudonymizes MCP tool results and questions before they reach the model; reveals real values only in the terminal.",
+  "author": {
+    "name": "Marc Lebreuil"
+  },
+  "license": "MIT",
   "userConfig": {
     "enginePath": {
       "type": "string",
