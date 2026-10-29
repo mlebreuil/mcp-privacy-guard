@@ -65,6 +65,7 @@ Also: `testservers/generic/` (dev-only MCP server for tests), `docs/` (user docu
 ```sh
 cd engine && uv sync                      # install with dev dependencies
 uv run pytest                             # all tests; -m leak / -m bench for the gates
+                                          # CI skips bench (shared runners are too slow): run it locally
 uv run ruff check . && uv run mypy src    # lint and type checks
 claude plugin validate plugin             # plugin manifest and module
 claude plugin test plugin                 # plugin tests (*.test.ts)

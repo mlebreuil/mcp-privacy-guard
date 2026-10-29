@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import re
 
-from mcp_privacy_guard.store import Store
 from tests.conftest import KEY, OTHER_KEY
 
 from mcp_privacy_guard.standins import names, pseudonymize
+from mcp_privacy_guard.store import Store
 
 NAME = re.compile(r"^n-[a-z2-7]{6}$")
 

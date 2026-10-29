@@ -45,7 +45,9 @@ with the sandbox enabled. The VS Code extension and the desktop app are refused 
 
 **Performance Goals**: under 1 s added per tool call with up to 500 records, and per question
 (SC-006). Reveal at most 4 ms per rendered row of up to 4 KB with a 100k-entry table
-(SC-005 made measurable, research R10), with a plugin benchmark.
+(SC-005 made measurable, research R10), with a plugin benchmark. The SC-006 benchmarks
+(`-m bench`) are a local gate: CI skips them because two Python process starts on a shared
+runner exceed the budget (1.21 s measured) without any change in the engine.
 
 **Constraints**: fail closed everywhere. No network listener. No runtime dependencies. No
 global off-switch. Hook `.catch` handlers have 1 s and must not call the engine.

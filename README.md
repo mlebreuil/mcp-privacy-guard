@@ -38,7 +38,7 @@ an operator exemption of one server by name.
 ## Development
 
 ```sh
-cd engine && uv sync && uv run pytest        # all tests; -m leak / -m bench for the gates
+cd engine && uv sync && uv run pytest        # all tests; -m leak / -m bench for the gates (CI skips bench: run it locally)
 uv run ruff check . && uv run mypy src
 claude plugin validate plugin && claude plugin test plugin
 ```
